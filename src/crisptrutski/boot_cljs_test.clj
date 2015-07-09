@@ -82,6 +82,7 @@
     (ensure-deps! [:doo])
     (fn [next-task]
       (fn [fileset]
+        (info "Running cljs tests...")
         (when-let [path (some->> (core/output-files fileset)
                                  (filter (comp #{out-file} :path))
                                  (sort-by :time)
