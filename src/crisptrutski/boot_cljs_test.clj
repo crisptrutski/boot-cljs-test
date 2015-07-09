@@ -82,11 +82,12 @@
     (ensure-deps! [:doo])
     (fn [next-task]
       (fn [fileset]
-        (let [file (->> (core/output-files fileset)
-                        (filter (comp #{out-file} :path))
-                        (sort-by :time)
-                        (last))
-              path (.getPath (core/tmp-file file))]
+        (when-let [path (some->> (core/output-files fileset)
+                                 (filter (comp #{out-file} :path))
+                                 (sort-by :time)
+                                 (last)
+                                 (core/tmp-file)
+                                 (.getPath))]
           (let [{:keys [exit] :as result} ((r doo.core/run-script) js-env path)]
             (when exit? (System/exit exit))
             (next-task fileset)))))))
