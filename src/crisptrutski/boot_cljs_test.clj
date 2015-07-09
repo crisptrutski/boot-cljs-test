@@ -1,6 +1,7 @@
 (ns crisptrutski.boot-cljs-test
   (:require [clojure.string :as str]
             [clojure.java.io :as io]
+            [boot.task.built-in :as b]
             [boot.core :as core :refer [deftask]]
             [boot.pod :as pod]
             [boot.util :refer [info dbug warn]]))
@@ -83,15 +84,16 @@
     (fn [next-task]
       (fn [fileset]
         (info "Running cljs tests...")
-        (when-let [path (some->> (core/output-files fileset)
-                                 (filter (comp #{out-file} :path))
-                                 (sort-by :time)
-                                 (last)
-                                 (core/tmp-file)
-                                 (.getPath))]
+        (if-let [path (some->> (core/output-files fileset)
+                               (filter (comp #{out-file} :path))
+                               (sort-by :time)
+                               (last)
+                               (core/tmp-file)
+                               (.getPath))]
           (let [{:keys [exit] :as result} ((r doo.core/run-script) js-env path)]
             (when exit? (System/exit exit))
-            (next-task fileset)))))))
+            (next-task fileset))
+          (warn (str "Test script not found: " out-file)))))))
 
 (deftask test-cljs
   "Run cljs.test tests via the engine of your choice.
@@ -107,11 +109,18 @@
    o out-file   VAL str    "Output file for test script."
    x exit?          bool   "Exit immediately with reporter's exit code."]
   (ensure-deps! [:doo :adzerk/boot-cljs])
-  (fn [next-task]
-    ((comp (prep-cljs-tests :out-file out-file :namespaces namespaces :suite-ns suite-ns)
-           ((r adzerk.boot-cljs/cljs) :optimizations :whitespace
-                      :compiler-options {:output-to (or out-file default-output)})
-           (run-cljs-tests :out-file out-file
-                           :js-env js-env
-                           :exit exit?))
-     next-task)))
+  (let [out-file (or out-file default-output)]
+    ;; TODO: less invasive to generate, and focus compile to, just an explicit
+    ;;       .cljs.edn file - that way we don't need to affect downstream
+    ;;       fileset consumers.
+    (comp (b/sift :include #{#".*\.cljs.edn"}
+                  :invert true)
+          (prep-cljs-tests :out-file out-file
+                           :namespaces namespaces
+                           :suite-ns suite-ns)
+          ((r adzerk.boot-cljs/cljs)
+           :optimizations :whitespace
+           :compiler-options {:output-to out-file})
+          (run-cljs-tests :out-file out-file
+                          :js-env js-env
+                          :exit exit?))))
