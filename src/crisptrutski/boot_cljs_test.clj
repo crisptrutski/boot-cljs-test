@@ -121,8 +121,8 @@
                            :namespaces namespaces
                            :suite-ns suite-ns)
           ((r adzerk.boot-cljs/cljs)
-           :optimizations :whitespace
-           :compiler-options {:output-to out-file, :main suite-ns})
+           :compiler-options {:output-to out-file, :main suite-ns
+           :optimizations :none})
           (run-cljs-tests :out-file out-file
                           :js-env js-env
                           :exit exit?))))
