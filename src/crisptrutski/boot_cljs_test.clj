@@ -12,7 +12,7 @@
 
 (def deps
   {:adzerk/boot-cljs "0.0-3308-0"
-   :doo              "0.1.2-SNAPSHOT"})
+   :doo              "0.1.4-SNAPSHOT"})
 
 (defn- filter-deps [keys]
   (let [dependencies (mapv #(vector (symbol (subs (str %) 1)) (deps %)) keys)]
@@ -81,6 +81,7 @@
   (let [js-env     (or js-env default-js-env)
         out-file   (or out-file default-output)]
     (ensure-deps! [:doo])
+    ((r doo.core/assert-compiler-opts) js-env {:output-to out-file})
     (fn [next-task]
       (fn [fileset]
         (info "Running cljs tests...")
@@ -120,7 +121,7 @@
                            :suite-ns suite-ns)
           ((r adzerk.boot-cljs/cljs)
            :optimizations :whitespace
-           :compiler-options {:output-to out-file})
+           :compiler-options {:output-to out-file, :main suite-ns})
           (run-cljs-tests :out-file out-file
                           :js-env js-env
                           :exit exit?))))
