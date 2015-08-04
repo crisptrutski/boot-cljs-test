@@ -110,7 +110,8 @@
    o out-file   VAL str    "Output file for test script."
    x exit?          bool   "Exit immediately with reporter's exit code."]
   (ensure-deps! [:doo :adzerk/boot-cljs])
-  (let [out-file (or out-file default-output)]
+  (let [out-file (or out-file default-output)
+        suite-ns suite-ns]
     ;; TODO: less invasive to generate, and focus compile to, just an explicit
     ;;       .cljs.edn file - that way we don't need to affect downstream
     ;;       fileset consumers.
