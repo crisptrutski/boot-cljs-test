@@ -11,7 +11,7 @@
   `(do (require '~(symbol (namespace sym))) (resolve '~sym)))
 
 (def deps
-  {:adzerk/boot-cljs "0.0-3308-0"
+  {:adzerk/boot-cljs "1.7.48-SNAPSHOT"
    :doo              "0.1.4-SNAPSHOT"})
 
 (defn- filter-deps [keys]
@@ -43,13 +43,17 @@
          (map #(with-out-str (clojure.pprint/pprint %)))
          (str/join "\n" ))))
 
+(defn- cljs-files
+  [fileset]
+  (->> fileset core/input-files (core/by-ext [".cljs" ".cljc"]) (sort-by :path)))
+
 (defn add-suite-ns!
   "Add test suite bootstrap script to fileset."
   [fileset tmp-main suite-ns test-namespaces]
   (ensure-deps! [:adzerk/boot-cljs])
   (let [out-main (ns->cljs-path suite-ns)
-        out-file  (doto (io/file tmp-main out-main) io/make-parents)
-        {:keys [cljs]} ((r adzerk.boot-cljs.js-deps/scan-fileset) fileset)]
+        out-file (doto (io/file tmp-main out-main) io/make-parents)
+        cljs     (cljs-files fileset)]
     (info "Writing %s...\n" (.getName out-file))
     (spit out-file (gen-suite-ns suite-ns
                                  (mapv (comp symbol (r adzerk.boot-cljs.util/path->ns)
@@ -91,38 +95,41 @@
                                (last)
                                (core/tmp-file)
                                (.getPath))]
-          (let [{:keys [exit] :as result} ((r doo.core/run-script) js-env path)]
+          (let [{:keys [exit] :as result} ((r doo.core/run-script)
+                                           js-env
+                                           {:output-to path})]
             (when exit? (System/exit exit))
             (next-task fileset))
-          (warn (str "Test script not found: " out-file)))))))
+          (do (warn (str "Test script not found: " out-file))
+              (when exit? (System/exit 1))))))))
 
 (deftask test-cljs
   "Run cljs.test tests via the engine of your choice.
 
    The --namespaces option specifies the namespaces to test. The default is to
    run tests in all namespaces found in the project."
-  [e js-env     VAL kw     "The environment to run tests within, eg. slimer, phantom, node,
-                            or rhino"
-   n namespaces NS  #{sym} "Namespaces whose tests will be run. All tests will be run if
-                            ommitted."
-   s suite-ns   NS  sym    "Test entry point. If this is not provided, a namespace will be
-                            generated."
-   o out-file   VAL str    "Output file for test script."
-   x exit?          bool   "Exit immediately with reporter's exit code."]
+  [e js-env        VAL   kw     "The environment to run tests within, eg. slimer, phantom, node,
+                                 or rhino"
+   n namespaces    NS    #{sym} "Namespaces whose tests will be run. All tests will be run if
+                                 ommitted."
+   s suite-ns      NS    sym    "Test entry point. If this is not provided, a namespace will be
+                                 generated."
+   O optimizations LEVEL kw     "The optimization level."
+   o out-file      VAL   str    "Output file for test script."
+   x exit?               bool   "Exit immediately with reporter's exit code."]
   (ensure-deps! [:doo :adzerk/boot-cljs])
-  (let [out-file (or out-file default-output)
-        suite-ns suite-ns]
-    ;; TODO: less invasive to generate, and focus compile to, just an explicit
-    ;;       .cljs.edn file - that way we don't need to affect downstream
-    ;;       fileset consumers.
-    (comp (b/sift :include #{#".*\.cljs.edn"}
-                  :invert true)
-          (prep-cljs-tests :out-file out-file
+  (let [out-file      (or out-file default-output)
+        out-id        (str/replace out-file #"\.js$" "")
+        optimizations (or optimizations :none)
+        suite-ns      suite-ns]
+    (comp (prep-cljs-tests :out-file out-file
                            :namespaces namespaces
                            :suite-ns suite-ns)
           ((r adzerk.boot-cljs/cljs)
-           :compiler-options {:output-to out-file, :main suite-ns
-           :optimizations :none})
+           :ids              #{out-id}
+           :compiler-options {:output-to     out-file
+                              :main          suite-ns
+                              :optimizations optimizations})
           (run-cljs-tests :out-file out-file
                           :js-env js-env
                           :exit exit?))))
