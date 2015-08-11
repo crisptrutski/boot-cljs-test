@@ -4,7 +4,7 @@ Boot task to run ClojureScript tests.
 
 [](dependency)
 ```clojure
-[crisptrutski/boot-cljs-test "0.1.0-SNAPSHOT"] ;; latest release
+[crisptrutski/boot-cljs-test "0.2.0-SNAPSHOT"] ;; latest release
 ```
 [](/dependency)
 
