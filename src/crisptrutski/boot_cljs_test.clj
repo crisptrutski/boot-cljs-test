@@ -12,7 +12,7 @@
 
 (def deps
   {:adzerk/boot-cljs "1.7.48-SNAPSHOT"
-   :doo              "0.1.5-SNAPSHOT"})
+   :doo              "0.1.4"})
 
 (defn- filter-deps [keys]
   (let [dependencies (mapv #(vector (symbol (subs (str %) 1)) (deps %)) keys)]
@@ -97,7 +97,7 @@
                                (.getPath))]
           (let [{:keys [exit] :as result} ((r doo.core/run-script)
                                            js-env
-                                           {:output-to path})]
+                                           path)]
             (when exit? (System/exit exit))
             (next-task fileset))
           (do (warn (str "Test script not found: " out-file))
