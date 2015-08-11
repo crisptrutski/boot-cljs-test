@@ -4,11 +4,11 @@
                   [adzerk/bootlaces          "0.1.11"     :scope "test"]
                   [org.clojure/clojurescript "1.7.107"   :scope "test"]
                   [adzerk/boot-cljs          "0.0-3308-0" :scope "test"]
-                  [doo                       "0.1.2" :scope "test"]])
+                  [doo                       "0.1.4" :scope "test"]])
 
 (require '[adzerk.bootlaces :refer :all])
 
-(def +version+ "0.1.0-SNAPSHOT")
+(def +version+ "0.1.0")
 
 (bootlaces! +version+)
 
