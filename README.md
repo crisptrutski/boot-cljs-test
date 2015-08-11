@@ -2,7 +2,11 @@
 
 Boot task to run ClojureScript tests.
 
-`[crisptrutski/boot-cljs-repl "0.1.0-SNAPSHOT"] `
+[](dependency)
+```clojure
+[crisptrutski/boot-cljs-test "0.1.0-SNAPSHOT"] ;; latest release
+```
+[](/dependency)
 
 There are no stable releases yet - this is brand spanking new.
 
