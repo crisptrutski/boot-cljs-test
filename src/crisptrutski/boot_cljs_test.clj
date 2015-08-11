@@ -127,8 +127,7 @@
                            :suite-ns suite-ns)
           ((r adzerk.boot-cljs/cljs)
            :ids              #{out-id}
-           :compiler-options {:output-to     out-file
-                              :main          suite-ns
+           :compiler-options {:main          suite-ns
                               :optimizations optimizations})
           (run-cljs-tests :out-file out-file
                           :js-env js-env
