@@ -4,7 +4,7 @@
             [boot.task.built-in :as b]
             [boot.core :as core :refer [deftask]]
             [boot.pod :as pod]
-            [boot.util :refer [info dbug warn]]))
+            [boot.util :refer [info dbug warn fail]]))
 
 (defmacro ^:private r
   [sym]
@@ -121,7 +121,12 @@
   (let [out-file      (or out-file default-output)
         out-id        (str/replace out-file #"\.js$" "")
         optimizations (or optimizations :none)
-        suite-ns      suite-ns]
+        js-env        (or js-env default-js-env)
+        suite-ns      (or suite-ns default-suite-ns)]
+    (when (and (= :none optimizations)
+               (= :rhino js-env))
+      (fail "Combination of :rhino and :none is not currently supported.\n")
+      (System/exit 1))
     (comp (prep-cljs-tests :out-file out-file
                            :namespaces namespaces
                            :suite-ns suite-ns)
