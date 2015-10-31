@@ -86,7 +86,7 @@
   (let [js-env     (or js-env default-js-env)
         out-file   (or out-file default-output)]
     (ensure-deps! [:doo])
-    ((r doo.core/assert-compiler-opts) js-env {:output-to out-file})
+    ;;((r doo.core/assert-compiler-opts) js-env {:output-to out-file})
     (fn [next-task]
       (fn [fileset]
         (info "Running cljs tests...")
