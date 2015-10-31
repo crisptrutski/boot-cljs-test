@@ -81,6 +81,7 @@
   [o out-file   VAL str  "Output file for test script."
    e js-env     VAL kw   "The environment to run tests within, eg. slimer, phantom, node,
                           or rhino."
+   c cljs-opts  VAL code "Compiler options for CLJS"
    x exit?          bool "Exit immediately with reporter's exit code."]
   (let [js-env     (or js-env default-js-env)
         out-file   (or out-file default-output)]
@@ -125,7 +126,7 @@
         js-env        (or js-env default-js-env)
         suite-ns      (or suite-ns default-suite-ns)
         cljs-opts     (merge {:main suite-ns, :optimizations optimizations}
-                             (when (= :node cljs-opts) {:taget :nodejs, :hashbang false})
+                             (when (= :node js-env) {:target :nodejs, :hashbang false})
                              cljs-opts)]
     (when (and (= :none optimizations)
                (= :rhino js-env))
@@ -138,5 +139,6 @@
            :ids              #{out-id}
            :compiler-options cljs-opts)
           (run-cljs-tests :out-file out-file
+                          :cljs-opts cljs-opts
                           :js-env js-env
                           :exit exit?))))
