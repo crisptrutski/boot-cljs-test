@@ -116,13 +116,17 @@
                                  generated."
    O optimizations LEVEL kw     "The optimization level."
    o out-file      VAL   str    "Output file for test script."
+   c cljs-opts     VAL   code   "Compiler options for CLJS"
    x exit?               bool   "Exit immediately with reporter's exit code."]
   (ensure-deps! [:doo :adzerk/boot-cljs])
   (let [out-file      (or out-file default-output)
         out-id        (str/replace out-file #"\.js$" "")
         optimizations (or optimizations :none)
         js-env        (or js-env default-js-env)
-        suite-ns      (or suite-ns default-suite-ns)]
+        suite-ns      (or suite-ns default-suite-ns)
+        cljs-opts     (merge {:main suite-ns, :optimizations optimizations}
+                             (when (= :node cljs-opts) {:taget :nodejs, :hashbang false})
+                             cljs-opts)]
     (when (and (= :none optimizations)
                (= :rhino js-env))
       (fail "Combination of :rhino and :none is not currently supported.\n")
@@ -132,8 +136,7 @@
                            :suite-ns suite-ns)
           ((r adzerk.boot-cljs/cljs)
            :ids              #{out-id}
-           :compiler-options {:main          suite-ns
-                              :optimizations optimizations})
+           :compiler-options cljs-opts)
           (run-cljs-tests :out-file out-file
                           :js-env js-env
                           :exit exit?))))
