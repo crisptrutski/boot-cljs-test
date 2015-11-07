@@ -37,7 +37,7 @@
   (let [ns-spec `(~'ns ~ns (:require [doo.runner :refer-macros [~'doo-tests ~'doo-all-tests]]
                                      ~@(mapv vector sources)))
         run-exp (if (seq test-namespaces)
-                  `(~'doo-tests ~test-namespaces)
+                  `(~'doo-tests ~@test-namespaces)
                   '(doo-all-tests))]
     (->> [ns-spec run-exp]
          (map #(with-out-str (clojure.pprint/pprint %)))
