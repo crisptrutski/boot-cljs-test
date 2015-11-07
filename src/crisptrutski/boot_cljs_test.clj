@@ -141,4 +141,4 @@
           (run-cljs-tests :out-file out-file
                           :cljs-opts cljs-opts
                           :js-env js-env
-                          :exit exit?))))
+                          :exit? exit?))))
