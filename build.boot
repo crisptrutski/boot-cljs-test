@@ -19,3 +19,6 @@
        :url         "https://github.com/crisptrutski/boot-cljs-test"
        :scm         {:url "https://github.com/crisptrutski/boot-cljs-test"}
        :license     {"EPL" "http://www.eclipse.org/legal/epl-v10.html"}})
+
+(deftask deps[])
+

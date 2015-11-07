@@ -2,6 +2,9 @@
 
 Boot task to run ClojureScript tests.
 
+[![Circle
+CI](https://circleci.com/gh/crisptrutski/boot-cljs-test.svg?style=svg)](https://circleci.com/gh/crisptrutski/boot-cljs-test)
+
 [](dependency)
 ```clojure
 [crisptrutski/boot-cljs-test "0.2.0-SNAPSHOT"] ;; latest release
