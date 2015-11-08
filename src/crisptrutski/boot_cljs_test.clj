@@ -31,13 +31,16 @@
       (str/replace "." "/")
       (str ".cljs")))
 
+(defn- normalize-sym [x]
+  (if (symbol? x) (cons 'quote [(symbol (.replace (name x) "'" ""))]) x))
+
 (defn- gen-suite-ns
   "Generate source-code for default test suite."
   [ns sources test-namespaces]
   (let [ns-spec `(~'ns ~ns (:require [doo.runner :refer-macros [~'doo-tests ~'doo-all-tests]]
                                      ~@(mapv vector sources)))
         run-exp (if (seq test-namespaces)
-                  `(~'doo-tests ~test-namespaces)
+                  `(~'doo-tests ~@(map normalize-sym test-namespaces))
                   '(doo-all-tests))]
     (->> [ns-spec run-exp]
          (map #(with-out-str (clojure.pprint/pprint %)))
