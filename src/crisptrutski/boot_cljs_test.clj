@@ -4,15 +4,16 @@
             [boot.task.built-in :as b]
             [boot.core :as core :refer [deftask]]
             [boot.pod :as pod]
-            [boot.util :refer [info dbug warn fail]]))
+            [boot.util :refer [info dbug warn fail]])
+  (:import (java.io File)))
 
 (defmacro ^:private r
   [sym]
   `(do (require '~(symbol (namespace sym))) (resolve '~sym)))
 
 (def deps
-  {:adzerk/boot-cljs "1.7.48-SNAPSHOT"
-   :doo              "0.1.4"})
+  {:adzerk/boot-cljs "1.7.170-3"
+   :doo              "0.1.6"})
 
 (defn- filter-deps [keys]
   (let [dependencies (mapv #(vector (symbol (subs (str %) 1)) (deps %)) keys)]
@@ -86,8 +87,8 @@
                           or rhino."
    c cljs-opts  VAL code "Compiler options for CLJS"
    x exit?          bool "Exit immediately with reporter's exit code."]
-  (let [js-env     (or js-env default-js-env)
-        out-file   (or out-file default-output)]
+  (let [js-env   (or js-env default-js-env)
+        out-file (or out-file default-output)]
     (ensure-deps! [:doo])
     ;;((r doo.core/assert-compiler-opts) js-env {:output-to out-file})
     (fn [next-task]
@@ -99,9 +100,11 @@
                                (last)
                                (core/tmp-file)
                                (.getPath))]
-          (let [{:keys [exit] :as result} ((r doo.core/run-script)
+          (let [dir (.getParentFile (File. path))
+                {:keys [exit] :as result} ((r doo.core/run-script)
                                            js-env
-                                           path)]
+                                           {:output-to path}
+                                           {:exec-dir dir})]
             (when exit? (System/exit exit))
             (next-task fileset))
           (do (warn (str "Test script not found: " out-file))
