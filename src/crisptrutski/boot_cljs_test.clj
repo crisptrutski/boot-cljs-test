@@ -13,7 +13,7 @@
 
 (def deps
   {:adzerk/boot-cljs "1.7.170-3"
-   :doo              "0.1.6"})
+   :doo              "0.1.7-SNAPSHOT"})
 
 (defn- filter-deps [keys]
   (let [dependencies (mapv #(vector (symbol (subs (str %) 1)) (deps %)) keys)]
