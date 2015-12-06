@@ -3,8 +3,8 @@
                   [boot/core                 "2.4.2"      :scope "provided"]
                   [adzerk/bootlaces          "0.1.13"     :scope "test"]
                   [org.clojure/clojurescript "1.7.170"    :scope "test"]
-                  [adzerk/boot-cljs          "1.7.170-3"    :scope "test"]
-                  [doo                       "0.1.6-rc.1" :scope "test"]])
+                  [adzerk/boot-cljs          "1.7.170-3"  :scope "test"]
+                  [doo                       "0.1.6"      :scope "test"]])
 
 (require '[adzerk.bootlaces :refer :all])
 
