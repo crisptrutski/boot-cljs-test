@@ -1,17 +1,11 @@
-(ns crisptrutski.boot-cljs-test.example.lib-test
+(ns boot-cljs-test-example.lib-test
   #?(:cljs (:require-macros [cljs.test :refer [deftest testing is async]]))
   (:require #?(:clj [clojure.test :refer :all :as t]
                :cljs [cljs.test :as t])
-            [crisptrutski.boot-cljs-test.example.lib :as lib]))
+            #?(:clj [boot-cljs-test-example.helpers :refer [async]])
+            [boot-cljs-test-example.lib :as lib]))
 
 #?(:cljs (enable-console-print!))
-
-#?(:clj
-(defmacro async [bind & body]
-  `(let [p# (promise)
-         ~bind #(deliver p# 1)]
-     ~@body
-     @p#)))
 
 (deftest test-pass []
   (is (= 3 lib/three)))
