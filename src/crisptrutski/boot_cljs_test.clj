@@ -7,6 +7,8 @@
             [boot.util :refer [info dbug warn fail]])
   (:import (java.io File)))
 
+(def failures? (atom false))
+
 (defmacro ^:private r
   [sym]
   `(do (require '~(symbol (namespace sym))) (resolve '~sym)))
@@ -105,6 +107,7 @@
                                            js-env
                                            {:output-to path}
                                            {:exec-dir dir})]
+            (when (pos? exit) (reset! failures? true))
             (when exit? (System/exit exit))
             (next-task fileset))
           (do (warn (str "Test script not found: " out-file))
@@ -148,3 +151,10 @@
                           :cljs-opts cljs-opts
                           :js-env js-env
                           :exit? exit?))))
+
+(deftask exit!
+  "Exit with the appropriate error code"
+  []
+  (fn [_]
+    (fn [_]
+      (System/exit (if @failures? 1 0)))))
