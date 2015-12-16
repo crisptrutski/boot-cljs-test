@@ -140,7 +140,8 @@
     (when (and (= :none optimizations)
                (= :rhino js-env))
       (fail "Combination of :rhino and :none is not currently supported.\n")
-      (System/exit 1))
+      (when exit?
+        (System/exit 1)))
     (comp (prep-cljs-tests :out-file out-file
                            :namespaces namespaces
                            :suite-ns suite-ns)
