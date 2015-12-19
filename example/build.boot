@@ -15,22 +15,18 @@
  '[adzerk.boot-reload          :refer [reload]]
  '[adzerk.boot-test            :refer :all]
  '[pandeiro.boot-http          :refer [serve]]
- '[crisptrutski.boot-cljs-test :refer [test-cljs exit! with-ns]])
-
-(deftask testing []
-  (set-env! :source-paths #(conj % "test"))
-  identity)
+ '[crisptrutski.boot-cljs-test :refer [test-cljs exit! with-ns testing]])
 
 (deftask deps [])
 
 (deftask test-all []
   (comp (testing)
-        (test-cljs :js-env :phantom #_:exit? #_true)
-        (test)
+        (with-ns test-cljs)
+        (with-ns test)
         (exit!)))
 
 (deftask auto-test []
   (comp (testing)
         (watch)
-        (test-cljs :js-env :phantom)
-        (test)))
+        (with-ns test-cljs)
+        (with-ns test)))

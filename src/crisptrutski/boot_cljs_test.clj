@@ -20,6 +20,32 @@
 
 (def failures? (atom false))
 
+;; speculative helpers
+
+(deftask testing
+  "Add default test location to :source-paths"
+  []
+  (core/set-env! :source-paths #(conj % "test"))
+  identity)
+
+(defn test-ns? [sym]
+  (re-find #"-test$" (name sym)))
+
+(defn ns-from-dirs [dirs]
+  (into #{} (mapcat u/ns-from-dir) dirs))
+
+(defn- compute-ns [dirs]
+  (filter test-ns? (ns-from-dirs dirs)))
+
+(defn with-ns
+  "Compute test :namespaces dynamically"
+  ([task-fn]
+   (with-ns task-fn nil))
+  ([task-fn opts]
+   (with-ns task-fn opts ["test"]))
+  ([task-fn opts dirs]
+   (u/wrap-task task-fn (fn [_] (assoc opts :namespaces (compute-ns dirs))))))
+
 ;; core
 
 (defn ensure-deps! [keys]
