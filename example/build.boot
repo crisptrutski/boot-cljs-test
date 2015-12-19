@@ -22,6 +22,11 @@
 (deftask test-default []
   (test-cljs :conventions? true :exit? true))
 
+(deftask test-suite []
+  (test-cljs :conventions? true
+             :exit? true
+             :suite-ns 'boot-cljs-test-example.suite))
+
 (deftask test-all []
   (comp (testing)
         (with-ns test-cljs)

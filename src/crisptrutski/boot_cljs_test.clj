@@ -69,14 +69,18 @@
   (ensure-deps! [:adzerk/boot-cljs])
   (let [out-main (u/ns->cljs-path suite-ns)
         out-file (doto (io/file tmp-main out-main) io/make-parents)
+        out-path (u/relativize (.getPath tmp-main) (.getPath out-file))
         cljs     (u/cljs-files fileset)]
-    (info "Writing %s...\n" (.getName out-file))
-    (spit out-file (gen-suite-ns suite-ns
-                                 (mapv (comp symbol (u/r adzerk.boot-cljs.util/path->ns)
-                                             core/tmp-path)
-                                       cljs)
-                                 test-namespaces))
-    (-> fileset (core/add-source tmp-main) core/commit!)))
+    (if (contains? (into #{} (map core/tmp-path) cljs) out-path)
+      (do (info "Using %s...\n" out-path)
+          fileset)
+      (do (info "Writing %s...\n" out-path)
+          (spit out-file (gen-suite-ns suite-ns
+                                       (mapv (comp symbol (u/r adzerk.boot-cljs.util/path->ns)
+                                                   core/tmp-path)
+                                             cljs)
+                                       test-namespaces))
+          (-> fileset (core/add-source tmp-main) core/commit!)))))
 
 (deftask prep-cljs-tests
   "Prepare fileset to compile main entry point for the test suite."
