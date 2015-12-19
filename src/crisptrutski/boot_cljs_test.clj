@@ -130,6 +130,19 @@
           (do (warn (str "Test script not found: " out-file))
               (when exit? (System/exit 1))))))))
 
+(defn- capture-fileset [fs-atom]
+  (fn [next-task]
+    (fn [fileset]
+      (reset! fs-atom fileset)
+      (next-task fileset))))
+
+(defn- return-fileset [fs-atom]
+  (fn [next-task]
+    (fn [_]
+      (let [fileset @fs-atom]
+        (core/commit! fileset)
+        (next-task fileset)))))
+
 (deftask test-cljs
   "Run cljs.test tests via the engine of your choice.
 
@@ -146,6 +159,8 @@
    O optimizations LEVEL kw     "The optimization level."
    o out-file      VAL   str    "Output file for test script."
    c cljs-opts     VAL   code   "Compiler options for CLJS"
+   u update-fs?          bool   "Only if this is set does the next task's filset include
+                                 and generated or compiled cljs from the tests."
    x exit?               bool   "Exit immediately with reporter's exit code."]
   (ensure-deps! [:doo :adzerk/boot-cljs])
   (let [out-file      (or out-file default-output)
@@ -156,7 +171,10 @@
         namespaces    (or namespaces (compute-ns (if conventions? ["test"] test-dirs)))
         cljs-opts     (merge {:main suite-ns, :optimizations optimizations}
                              (when (= :node js-env) {:target :nodejs, :hashbang false})
-                             cljs-opts)]
+                             cljs-opts)
+        capture-atom  (atom nil)
+        ->fs          (if update-fs? identity (capture-fileset capture-atom))
+        fs->          (if update-fs? identity (return-fileset capture-atom))]
     (if (and (= :none optimizations)
              (= :rhino js-env))
       (do
@@ -165,6 +183,7 @@
           (System/exit 1)
           identity))
       (comp (if conventions? (testing) identity)
+            ->fs
             (prep-cljs-tests :out-file out-file
                              :namespaces namespaces
                              :suite-ns suite-ns)
@@ -174,7 +193,8 @@
             (run-cljs-tests :out-file out-file
                             :cljs-opts cljs-opts
                             :js-env js-env
-                            :exit? exit?)))))
+                            :exit? exit?)
+            fs->))))
 
 (deftask exit!
   "Exit with the appropriate error code"
