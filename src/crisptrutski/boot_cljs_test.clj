@@ -76,9 +76,12 @@
           fileset)
       (do (info "Writing %s...\n" out-path)
           (spit out-file (gen-suite-ns suite-ns
-                                       (mapv (comp symbol (u/r adzerk.boot-cljs.util/path->ns)
-                                                   core/tmp-path)
-                                             cljs)
+                                       (if (seq test-namespaces)
+                                         test-namespaces
+                                         (mapv (comp symbol
+                                                     (u/r adzerk.boot-cljs.util/path->ns)
+                                                     core/tmp-path)
+                                               cljs))
                                        test-namespaces))
           (-> fileset (core/add-source tmp-main) core/commit!)))))
 
