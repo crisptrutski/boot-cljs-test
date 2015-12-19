@@ -2,6 +2,7 @@
 
 ## 0.2.1 (pending)
 
+- Experimental: options and helpers around convention based usage.
 - Feature: Add `exit!` task, to defer behaviour from `:exit?` flag until later.
 - Bugfix: Respect `:exit?` flag for case of unsupported environments
 

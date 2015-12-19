@@ -132,6 +132,8 @@
                                  or rhino"
    n namespaces    NS    #{sym} "Namespaces whose tests will be run. All tests will be run if
                                  ommitted."
+   d test-dirs     STRS  #{str} "Test namespaces ending in -test, found in given directories"
+   t conventions?        bool   "Opinionated mode: :test-dirs is \"test\". Sets up :src-paths."
    s suite-ns      NS    sym    "Test entry point. If this is not provided, a namespace will be
                                  generated."
    O optimizations LEVEL kw     "The optimization level."
@@ -144,6 +146,7 @@
         optimizations (or optimizations :none)
         js-env        (or js-env default-js-env)
         suite-ns      (or suite-ns default-suite-ns)
+        namespaces    (or namespaces (compute-ns (if conventions? ["test"] test-dirs)))
         cljs-opts     (merge {:main suite-ns, :optimizations optimizations}
                              (when (= :node js-env) {:target :nodejs, :hashbang false})
                              cljs-opts)]
@@ -152,9 +155,10 @@
       (fail "Combination of :rhino and :none is not currently supported.\n")
       (when exit?
         (System/exit 1)))
-    (comp (prep-cljs-tests :out-file out-file
-                           :namespaces namespaces
-                           :suite-ns suite-ns)
+    (comp (if conventions? (testing) identity)
+          (prep-cljs-tests :out-file out-file
+                              :namespaces namespaces
+                              :suite-ns suite-ns)
           ((u/r adzerk.boot-cljs/cljs)
            :ids              #{out-id}
            :compiler-options cljs-opts)

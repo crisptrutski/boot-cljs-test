@@ -19,6 +19,9 @@
 
 (deftask deps [])
 
+(deftask test-default []
+  (test-cljs :conventions? true :exit? true))
+
 (deftask test-all []
   (comp (testing)
         (with-ns test-cljs)
