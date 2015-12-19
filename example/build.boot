@@ -38,3 +38,9 @@
         (watch)
         (with-ns test-cljs)
         (with-ns test)))
+
+(deftask test-basic []
+  (comp (testing)
+        (watch)
+        (test-cljs)
+        (test)))
