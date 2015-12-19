@@ -1,41 +1,29 @@
 (ns crisptrutski.boot-cljs-test
-  (:require [clojure.string :as str]
-            [clojure.java.io :as io]
-            [boot.task.built-in :as b]
-            [boot.core :as core :refer [deftask]]
-            [boot.pod :as pod]
-            [boot.util :refer [info dbug warn fail]])
-  (:import (java.io File)))
-
-(def failures? (atom false))
-
-(defmacro ^:private r
-  [sym]
-  `(do (require '~(symbol (namespace sym))) (resolve '~sym)))
+  (:require
+   [clojure.java.io :as io]
+   [clojure.string :as str]
+   [boot.core :as core :refer [deftask]]
+   [boot.util :refer [info dbug warn fail]]
+   [crisptrutski.boot-cljs-test.utils :as u])
+  (:import
+   [java.io File]))
 
 (def deps
   {:adzerk/boot-cljs "1.7.170-3"
    :doo              "0.1.7-SNAPSHOT"})
 
-(defn- filter-deps [keys]
-  (let [dependencies (mapv #(vector (symbol (subs (str %) 1)) (deps %)) keys)]
-    (remove pod/dependency-loaded? dependencies)))
-
-(defn ensure-deps! [keys]
-  (core/set-env! :dependencies #(into % (filter-deps keys))))
-
 (def default-js-env   :phantom)
 (def default-suite-ns 'clj-test.suite)
 (def default-output   "output.js")
 
-(defn- ns->cljs-path [ns]
-  (-> (str ns)
-      (str/replace "-" "_")
-      (str/replace "." "/")
-      (str ".cljs")))
+;; state
 
-(defn- normalize-sym [x]
-  (if (symbol? x) (cons 'quote [(symbol (.replace (name x) "'" ""))]) x))
+(def failures? (atom false))
+
+;; core
+
+(defn ensure-deps! [keys]
+  (core/set-env! :dependencies #(into % (u/filter-deps keys deps))))
 
 (defn- gen-suite-ns
   "Generate source-code for default test suite."
@@ -43,26 +31,22 @@
   (let [ns-spec `(~'ns ~ns (:require [doo.runner :refer-macros [~'doo-tests ~'doo-all-tests]]
                                      ~@(mapv vector sources)))
         run-exp (if (seq test-namespaces)
-                  `(~'doo-tests ~@(map normalize-sym test-namespaces))
+                  `(~'doo-tests ~@(map u/normalize-sym test-namespaces))
                   '(doo-all-tests))]
     (->> [ns-spec run-exp]
          (map #(with-out-str (clojure.pprint/pprint %)))
          (str/join "\n" ))))
 
-(defn- cljs-files
-  [fileset]
-  (->> fileset core/input-files (core/by-ext [".cljs" ".cljc"]) (sort-by :path)))
-
 (defn add-suite-ns!
   "Add test suite bootstrap script to fileset."
   [fileset tmp-main suite-ns test-namespaces]
   (ensure-deps! [:adzerk/boot-cljs])
-  (let [out-main (ns->cljs-path suite-ns)
+  (let [out-main (u/ns->cljs-path suite-ns)
         out-file (doto (io/file tmp-main out-main) io/make-parents)
-        cljs     (cljs-files fileset)]
+        cljs     (u/cljs-files fileset)]
     (info "Writing %s...\n" (.getName out-file))
     (spit out-file (gen-suite-ns suite-ns
-                                 (mapv (comp symbol (r adzerk.boot-cljs.util/path->ns)
+                                 (mapv (comp symbol (u/r adzerk.boot-cljs.util/path->ns)
                                              core/tmp-path)
                                        cljs)
                                  test-namespaces))
@@ -103,7 +87,7 @@
                                (core/tmp-file)
                                (.getPath))]
           (let [dir (.getParentFile (File. path))
-                {:keys [exit] :as result} ((r doo.core/run-script)
+                {:keys [exit] :as result} ((u/r doo.core/run-script)
                                            js-env
                                            {:output-to path}
                                            {:exec-dir dir})]
@@ -145,7 +129,7 @@
     (comp (prep-cljs-tests :out-file out-file
                            :namespaces namespaces
                            :suite-ns suite-ns)
-          ((r adzerk.boot-cljs/cljs)
+          ((u/r adzerk.boot-cljs/cljs)
            :ids              #{out-id}
            :compiler-options cljs-opts)
           (run-cljs-tests :out-file out-file
