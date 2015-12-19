@@ -36,7 +36,7 @@
       (str ".cljs")))
 
 (defn filename->path
-  "A sane constructor `java.nio.file.Path` instancees."
+  "A sane constructor `java.nio.file.Path` instances."
   [filename]
   ;; Workaround for bad time with types (can't hint (Paths/get ^String))
   (Paths/get filename (into-array String nil)))
