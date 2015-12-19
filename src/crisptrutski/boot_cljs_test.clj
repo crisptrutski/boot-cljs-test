@@ -150,22 +150,24 @@
         cljs-opts     (merge {:main suite-ns, :optimizations optimizations}
                              (when (= :node js-env) {:target :nodejs, :hashbang false})
                              cljs-opts)]
-    (when (and (= :none optimizations)
-               (= :rhino js-env))
-      (fail "Combination of :rhino and :none is not currently supported.\n")
-      (when exit?
-        (System/exit 1)))
-    (comp (if conventions? (testing) identity)
-          (prep-cljs-tests :out-file out-file
-                              :namespaces namespaces
-                              :suite-ns suite-ns)
-          ((u/r adzerk.boot-cljs/cljs)
-           :ids              #{out-id}
-           :compiler-options cljs-opts)
-          (run-cljs-tests :out-file out-file
-                          :cljs-opts cljs-opts
-                          :js-env js-env
-                          :exit? exit?))))
+    (if (and (= :none optimizations)
+             (= :rhino js-env))
+      (do
+        (fail "Combination of :rhino and :none is not currently supported.\n")
+        (if exit?
+          (System/exit 1)
+          identity))
+      (comp (if conventions? (testing) identity)
+            (prep-cljs-tests :out-file out-file
+                             :namespaces namespaces
+                             :suite-ns suite-ns)
+            ((u/r adzerk.boot-cljs/cljs)
+             :ids              #{out-id}
+             :compiler-options cljs-opts)
+            (run-cljs-tests :out-file out-file
+                            :cljs-opts cljs-opts
+                            :js-env js-env
+                            :exit? exit?)))))
 
 (deftask exit!
   "Exit with the appropriate error code"
