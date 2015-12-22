@@ -5,6 +5,7 @@
    [boot.core :as core])
   (:import
    [java.io File]
+   [java.util.regex Pattern]
    [java.nio.file Paths]))
 
 (defmacro r
@@ -26,6 +27,14 @@
       (str/replace "_" "-")
       (str/replace #"\/|\\" ".")
       symbol))
+
+(defn ns-literal? [ns]
+  (symbol? ns))
+
+(defn ns-regex [ns]
+  (cond
+    (instance? Pattern ns) ns
+    :else (re-pattern (str "\\A" (name ns) "\\z"))))
 
 (defn ns->cljs-path
   "Determine filename from namespace"
@@ -64,6 +73,17 @@
        (map #(.getPath %))
        (filter src-file?)
        (map #(file->ns (relativize dir %)))))
+
+(defn refine-namespaces [fs namespaces]
+  (if (and (seq namespaces) (every? ns-literal? namespaces))
+    namespaces
+    (let [regexes (map ns-regex namespaces)]
+      (->> (core/input-dirs fs)
+           (mapv (memfn getPath))
+           (into #{} (mapcat ns-from-dir))
+           (filter (fn [ns] (or (and (empty? regexes)
+                                     (re-find #"-test\z" (str ns)))
+                                (some #(re-find % (str ns)) regexes))))))))
 
 (defn cljs-files
   "Given a fileset, return a list of all the ClojureScript source files."

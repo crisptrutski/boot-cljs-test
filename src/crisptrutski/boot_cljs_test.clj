@@ -20,32 +20,6 @@
 
 (def failures? (atom false))
 
-;; speculative helpers
-
-(deftask testing
-  "Add default test location to :source-paths"
-  []
-  (core/set-env! :source-paths #(conj % "test"))
-  identity)
-
-(defn test-ns? [sym]
-  (re-find #"-test$" (name sym)))
-
-(defn ns-from-dirs [dirs]
-  (into #{} (mapcat u/ns-from-dir) dirs))
-
-(defn- compute-ns [dirs]
-  (filter test-ns? (ns-from-dirs dirs)))
-
-(defn with-ns
-  "Compute test :namespaces dynamically"
-  ([task-fn]
-   (with-ns task-fn nil))
-  ([task-fn opts]
-   (with-ns task-fn opts ["test"]))
-  ([task-fn opts dirs]
-   (u/wrap-task task-fn (fn [_] (assoc opts :namespaces (compute-ns dirs))))))
-
 ;; core
 
 (defn ensure-deps! [keys]
@@ -53,12 +27,10 @@
 
 (defn- gen-suite-ns
   "Generate source-code for default test suite."
-  [ns sources test-namespaces]
+  [ns test-namespaces]
   (let [ns-spec `(~'ns ~ns (:require [doo.runner :refer-macros [~'doo-tests ~'doo-all-tests]]
-                                     ~@(mapv vector sources)))
-        run-exp (if (seq test-namespaces)
-                  `(~'doo-tests ~@(map u/normalize-sym test-namespaces))
-                  '(doo-all-tests))]
+                                     ~@(mapv vector test-namespaces)))
+        run-exp `(~'doo-tests ~@(map u/normalize-sym test-namespaces))]
     (->> [ns-spec run-exp]
          (map #(with-out-str (clojure.pprint/pprint %)))
          (str/join "\n" ))))
@@ -75,29 +47,26 @@
       (do (info "Using %s...\n" out-path)
           fileset)
       (do (info "Writing %s...\n" out-path)
-          (spit out-file (gen-suite-ns suite-ns
-                                       (if (seq test-namespaces)
-                                         test-namespaces
-                                         (mapv (comp symbol
-                                                     (u/r adzerk.boot-cljs.util/path->ns)
-                                                     core/tmp-path)
-                                               cljs))
-                                       test-namespaces))
+          (spit out-file (gen-suite-ns suite-ns test-namespaces))
           (-> fileset (core/add-source tmp-main) core/commit!)))))
 
 (deftask prep-cljs-tests
   "Prepare fileset to compile main entry point for the test suite."
-  [o out-file   VAL str    "Output file for test script."
-   n namespaces NS  #{sym} "Namespaces whose tests will be run. All tests will be run if
-                            ommitted."
-   s suite-ns   NS  sym    "Test entry point. If this is not provided, a namespace will be
-                            generated."]
+  [o out-file   VAL str       "Output file for test script."
+   n namespaces NS ^:! #{str} "Namespaces whose tests will be run. All tests will be run if
+                               ommitted.
+                               Use symbols for literals.
+                               Regexes are also supported.
+                               Strings will be coerced to entire regexes."
+   s suite-ns   NS  sym       "Test entry point. If this is not provided, a namespace will be
+                               generated."]
   (let [out-file (or out-file default-output)
         suite-ns (or suite-ns default-suite-ns)
         tmp-main (core/tmp-dir!)]
     (core/with-pre-wrap fileset
-      (core/empty-dir! tmp-main)
-      (add-suite-ns! fileset tmp-main suite-ns namespaces))))
+      (let [namespaces (u/refine-namespaces fileset namespaces)]
+        (core/empty-dir! tmp-main)
+        (add-suite-ns! fileset tmp-main suite-ns namespaces)))))
 
 (deftask run-cljs-tests
   "Execute test reporter on compiled tests"
@@ -148,27 +117,24 @@
 
    The --namespaces option specifies the namespaces to test. The default is to
    run tests in all namespaces found in the project."
-  [e js-env        VAL   kw     "The environment to run tests within, eg. slimer, phantom, node,
-                                 or rhino"
-   n namespaces    NS    #{sym} "Namespaces whose tests will be run. All tests will be run if
-                                 ommitted."
-   d test-dirs     STRS  #{str} "Test namespaces ending in -test, found in given directories"
-   t conventions?        bool   "Opinionated mode: :test-dirs is \"test\". Sets up :src-paths."
-   s suite-ns      NS    sym    "Test entry point. If this is not provided, a namespace will be
-                                 generated."
-   O optimizations LEVEL kw     "The optimization level."
-   o out-file      VAL   str    "Output file for test script."
-   c cljs-opts     VAL   code   "Compiler options for CLJS"
-   u update-fs?          bool   "Only if this is set does the next task's filset include
-                                 and generated or compiled cljs from the tests."
-   x exit?               bool   "Exit immediately with reporter's exit code."]
+  [e js-env        VAL   kw      "The environment to run tests within, eg. slimer, phantom, node,
+                                  or rhino"
+   n namespaces    NS ^:! #{str} "Namespaces whose tests will be run. All tests will be run if
+                                  ommitted."
+   s suite-ns      NS    sym     "Test entry point. If this is not provided, a namespace will be
+                                  generated."
+   O optimizations LEVEL kw      "The optimization level."
+   o out-file      VAL   str     "Output file for test script."
+   c cljs-opts     VAL   code    "Compiler options for CLJS"
+   u update-fs?          bool    "Only if this is set does the next task's filset include
+                                  and generated or compiled cljs from the tests."
+   x exit?               bool    "Exit immediately with reporter's exit code."]
   (ensure-deps! [:doo :adzerk/boot-cljs])
   (let [out-file      (or out-file default-output)
         out-id        (str/replace out-file #"\.js$" "")
         optimizations (or optimizations :none)
         js-env        (or js-env default-js-env)
         suite-ns      (or suite-ns default-suite-ns)
-        namespaces    (or namespaces (compute-ns (if conventions? ["test"] test-dirs)))
         cljs-opts     (merge {:main suite-ns, :optimizations optimizations}
                              (when (= :node js-env) {:target :nodejs, :hashbang false})
                              cljs-opts)
@@ -182,8 +148,7 @@
         (if exit?
           (System/exit 1)
           identity))
-      (comp (if conventions? (testing) identity)
-            ->fs
+      (comp ->fs
             (prep-cljs-tests :out-file out-file
                              :namespaces namespaces
                              :suite-ns suite-ns)
