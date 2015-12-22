@@ -15,5 +15,5 @@ test:
     - boot deps:
         pwd: example
   override:
-    - boot test:
+    - boot test-all:
         pwd: example

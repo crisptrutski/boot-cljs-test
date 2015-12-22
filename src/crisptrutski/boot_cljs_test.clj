@@ -1,84 +1,72 @@
 (ns crisptrutski.boot-cljs-test
-  (:require [clojure.string :as str]
-            [clojure.java.io :as io]
-            [boot.task.built-in :as b]
-            [boot.core :as core :refer [deftask]]
-            [boot.pod :as pod]
-            [boot.util :refer [info dbug warn fail]])
-  (:import (java.io File)))
-
-(defmacro ^:private r
-  [sym]
-  `(do (require '~(symbol (namespace sym))) (resolve '~sym)))
+  (:require
+   [clojure.java.io :as io]
+   [clojure.string :as str]
+   [boot.core :as core :refer [deftask]]
+   [boot.util :refer [info dbug warn fail]]
+   [crisptrutski.boot-cljs-test.utils :as u])
+  (:import
+   [java.io File]))
 
 (def deps
   {:adzerk/boot-cljs "1.7.170-3"
    :doo              "0.1.7-SNAPSHOT"})
 
-(defn- filter-deps [keys]
-  (let [dependencies (mapv #(vector (symbol (subs (str %) 1)) (deps %)) keys)]
-    (remove pod/dependency-loaded? dependencies)))
-
-(defn ensure-deps! [keys]
-  (core/set-env! :dependencies #(into % (filter-deps keys))))
-
 (def default-js-env   :phantom)
 (def default-suite-ns 'clj-test.suite)
 (def default-output   "output.js")
 
-(defn- ns->cljs-path [ns]
-  (-> (str ns)
-      (str/replace "-" "_")
-      (str/replace "." "/")
-      (str ".cljs")))
+;; state
 
-(defn- normalize-sym [x]
-  (if (symbol? x) (cons 'quote [(symbol (.replace (name x) "'" ""))]) x))
+(def failures? (atom false))
+
+;; core
+
+(defn ensure-deps! [keys]
+  (core/set-env! :dependencies #(into % (u/filter-deps keys deps))))
 
 (defn- gen-suite-ns
   "Generate source-code for default test suite."
-  [ns sources test-namespaces]
+  [ns test-namespaces]
   (let [ns-spec `(~'ns ~ns (:require [doo.runner :refer-macros [~'doo-tests ~'doo-all-tests]]
-                                     ~@(mapv vector sources)))
-        run-exp (if (seq test-namespaces)
-                  `(~'doo-tests ~@(map normalize-sym test-namespaces))
-                  '(doo-all-tests))]
+                                     ~@(mapv vector test-namespaces)))
+        run-exp `(~'doo-tests ~@(map u/normalize-sym test-namespaces))]
     (->> [ns-spec run-exp]
          (map #(with-out-str (clojure.pprint/pprint %)))
          (str/join "\n" ))))
-
-(defn- cljs-files
-  [fileset]
-  (->> fileset core/input-files (core/by-ext [".cljs" ".cljc"]) (sort-by :path)))
 
 (defn add-suite-ns!
   "Add test suite bootstrap script to fileset."
   [fileset tmp-main suite-ns test-namespaces]
   (ensure-deps! [:adzerk/boot-cljs])
-  (let [out-main (ns->cljs-path suite-ns)
+  (let [out-main (u/ns->cljs-path suite-ns)
         out-file (doto (io/file tmp-main out-main) io/make-parents)
-        cljs     (cljs-files fileset)]
-    (info "Writing %s...\n" (.getName out-file))
-    (spit out-file (gen-suite-ns suite-ns
-                                 (mapv (comp symbol (r adzerk.boot-cljs.util/path->ns)
-                                             core/tmp-path)
-                                       cljs)
-                                 test-namespaces))
-    (-> fileset (core/add-source tmp-main) core/commit!)))
+        out-path (u/relativize (.getPath tmp-main) (.getPath out-file))
+        cljs     (u/cljs-files fileset)]
+    (if (contains? (into #{} (map core/tmp-path) cljs) out-path)
+      (do (info "Using %s...\n" out-path)
+          fileset)
+      (do (info "Writing %s...\n" out-path)
+          (spit out-file (gen-suite-ns suite-ns test-namespaces))
+          (-> fileset (core/add-source tmp-main) core/commit!)))))
 
 (deftask prep-cljs-tests
   "Prepare fileset to compile main entry point for the test suite."
-  [o out-file   VAL str    "Output file for test script."
-   n namespaces NS  #{sym} "Namespaces whose tests will be run. All tests will be run if
-                            ommitted."
-   s suite-ns   NS  sym    "Test entry point. If this is not provided, a namespace will be
-                            generated."]
+  [o out-file   VAL str       "Output file for test script."
+   n namespaces NS ^:! #{str} "Namespaces whose tests will be run. All tests will be run if
+                               ommitted.
+                               Use symbols for literals.
+                               Regexes are also supported.
+                               Strings will be coerced to entire regexes."
+   s suite-ns   NS  sym       "Test entry point. If this is not provided, a namespace will be
+                               generated."]
   (let [out-file (or out-file default-output)
         suite-ns (or suite-ns default-suite-ns)
         tmp-main (core/tmp-dir!)]
     (core/with-pre-wrap fileset
-      (core/empty-dir! tmp-main)
-      (add-suite-ns! fileset tmp-main suite-ns namespaces))))
+      (let [namespaces (u/refine-namespaces fileset namespaces)]
+        (core/empty-dir! tmp-main)
+        (add-suite-ns! fileset tmp-main suite-ns namespaces)))))
 
 (deftask run-cljs-tests
   "Execute test reporter on compiled tests"
@@ -101,30 +89,46 @@
                                (core/tmp-file)
                                (.getPath))]
           (let [dir (.getParentFile (File. path))
-                {:keys [exit] :as result} ((r doo.core/run-script)
+                {:keys [exit] :as result} ((u/r doo.core/run-script)
                                            js-env
                                            {:output-to path}
                                            {:exec-dir dir})]
+            (when (pos? exit) (reset! failures? true))
             (when exit? (System/exit exit))
             (next-task fileset))
           (do (warn (str "Test script not found: " out-file))
               (when exit? (System/exit 1))))))))
+
+(defn- capture-fileset [fs-atom]
+  (fn [next-task]
+    (fn [fileset]
+      (reset! fs-atom fileset)
+      (next-task fileset))))
+
+(defn- return-fileset [fs-atom]
+  (fn [next-task]
+    (fn [_]
+      (let [fileset @fs-atom]
+        (core/commit! fileset)
+        (next-task fileset)))))
 
 (deftask test-cljs
   "Run cljs.test tests via the engine of your choice.
 
    The --namespaces option specifies the namespaces to test. The default is to
    run tests in all namespaces found in the project."
-  [e js-env        VAL   kw     "The environment to run tests within, eg. slimer, phantom, node,
-                                 or rhino"
-   n namespaces    NS    #{sym} "Namespaces whose tests will be run. All tests will be run if
-                                 ommitted."
-   s suite-ns      NS    sym    "Test entry point. If this is not provided, a namespace will be
-                                 generated."
-   O optimizations LEVEL kw     "The optimization level."
-   o out-file      VAL   str    "Output file for test script."
-   c cljs-opts     VAL   code   "Compiler options for CLJS"
-   x exit?               bool   "Exit immediately with reporter's exit code."]
+  [e js-env        VAL   kw      "The environment to run tests within, eg. slimer, phantom, node,
+                                  or rhino"
+   n namespaces    NS ^:! #{str} "Namespaces whose tests will be run. All tests will be run if
+                                  ommitted."
+   s suite-ns      NS    sym     "Test entry point. If this is not provided, a namespace will be
+                                  generated."
+   O optimizations LEVEL kw      "The optimization level."
+   o out-file      VAL   str     "Output file for test script."
+   c cljs-opts     VAL   code    "Compiler options for CLJS"
+   u update-fs?          bool    "Only if this is set does the next task's filset include
+                                  and generated or compiled cljs from the tests."
+   x exit?               bool    "Exit immediately with reporter's exit code."]
   (ensure-deps! [:doo :adzerk/boot-cljs])
   (let [out-file      (or out-file default-output)
         out-id        (str/replace out-file #"\.js$" "")
@@ -133,18 +137,33 @@
         suite-ns      (or suite-ns default-suite-ns)
         cljs-opts     (merge {:main suite-ns, :optimizations optimizations}
                              (when (= :node js-env) {:target :nodejs, :hashbang false})
-                             cljs-opts)]
-    (when (and (= :none optimizations)
-               (= :rhino js-env))
-      (fail "Combination of :rhino and :none is not currently supported.\n")
-      (System/exit 1))
-    (comp (prep-cljs-tests :out-file out-file
-                           :namespaces namespaces
-                           :suite-ns suite-ns)
-          ((r adzerk.boot-cljs/cljs)
-           :ids              #{out-id}
-           :compiler-options cljs-opts)
-          (run-cljs-tests :out-file out-file
-                          :cljs-opts cljs-opts
-                          :js-env js-env
-                          :exit? exit?))))
+                             cljs-opts)
+        capture-atom  (atom nil)
+        ->fs          (if update-fs? identity (capture-fileset capture-atom))
+        fs->          (if update-fs? identity (return-fileset capture-atom))]
+    (if (and (= :none optimizations)
+             (= :rhino js-env))
+      (do
+        (fail "Combination of :rhino and :none is not currently supported.\n")
+        (if exit?
+          (System/exit 1)
+          identity))
+      (comp ->fs
+            (prep-cljs-tests :out-file out-file
+                             :namespaces namespaces
+                             :suite-ns suite-ns)
+            ((u/r adzerk.boot-cljs/cljs)
+             :ids              #{out-id}
+             :compiler-options cljs-opts)
+            (run-cljs-tests :out-file out-file
+                            :cljs-opts cljs-opts
+                            :js-env js-env
+                            :exit? exit?)
+            fs->))))
+
+(deftask exit!
+  "Exit with the appropriate error code"
+  []
+  (fn [_]
+    (fn [_]
+      (System/exit (if @failures? 1 0)))))
