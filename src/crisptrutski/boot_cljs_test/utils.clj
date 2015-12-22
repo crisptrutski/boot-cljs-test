@@ -59,7 +59,7 @@
 (defn src-file?
   "Is the file a Clojure(Script) file?"
   [filename]
-  (re-find #"\.clj.?$" filename))
+  (re-find #"\.clj(s|c)$" filename))
 
 (defn normalize-sym
   "Useful for macros - ensure the symbol is quoted, like a symbol literal."
