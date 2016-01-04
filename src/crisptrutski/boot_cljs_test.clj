@@ -89,10 +89,12 @@
                                (core/tmp-file)
                                (.getPath))]
           (let [dir (.getParentFile (File. path))
-                {:keys [exit] :as result} ((u/r doo.core/run-script)
-                                           js-env
-                                           {:output-to path}
-                                           {:exec-dir dir})]
+                ;; TODO: could infer :asset-path and :main too
+                ;; TODO: perhaps better to get boot-cljs to share this parsing logic
+                cljs (merge cljs-opts {:output-to path, :output-dir (str/replace path #".js\z" ".out")})
+                opts {:exec-dir dir}
+                {:keys [exit] :as result}
+                ((u/r doo.core/run-script) js-env cljs opts)]
             (when (pos? exit) (reset! failures? true))
             (when exit? (System/exit exit))
             (next-task fileset))
