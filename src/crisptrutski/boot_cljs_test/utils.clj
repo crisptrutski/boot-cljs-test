@@ -1,12 +1,12 @@
 (ns crisptrutski.boot-cljs-test.utils
   (:require
-   [boot.pod :as pod]
-   [clojure.string :as str]
-   [boot.core :as core])
+    [boot.pod :as pod]
+    [clojure.string :as str]
+    [boot.core :as core])
   (:import
-   [java.io File]
-   [java.util.regex Pattern]
-   [java.nio.file Paths]))
+    [java.io File]
+    [java.util.regex Pattern]
+    [java.nio.file Paths Path]))
 
 (defmacro r
   "Ensure symbol is loaded, and then resolve it. Useful with pods."
@@ -44,7 +44,7 @@
       (str/replace "." "/")
       (str ".cljs")))
 
-(defn filename->path
+(defn ^Path filename->path
   "A sane constructor `java.nio.file.Path` instances."
   [filename]
   ;; Workaround for bad time with types (can't hint (Paths/get ^String))
@@ -68,7 +68,7 @@
 
 (defn ns-from-dir
   "Given a directory, return a list of the namespaces given by files within it."
-  [dir]
+  [^String dir]
   (->> (file-seq (File. dir))
        (map #(.getPath %))
        (filter src-file?)
@@ -92,13 +92,3 @@
        core/input-files
        (core/by-ext [".cljs" ".cljc"])
        (sort-by :path)))
-
-(defn wrap-task
-  "Apply boot task with dynamically calculated arguments."
-  [task-fn args-fn]
-  (fn [next]
-    (fn [fileset]
-      (let [args (args-fn fileset)
-            task (apply task-fn (mapcat identity args))
-            func (task next)]
-        (func fileset)))))

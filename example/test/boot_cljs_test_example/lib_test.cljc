@@ -1,6 +1,6 @@
 (ns boot-cljs-test-example.lib-test
   #?(:cljs (:require-macros [cljs.test :refer [deftest testing is async]]))
-  (:require #?(:clj [clojure.test :refer :all :as t]
+  (:require #?(:clj [clojure.test :refer :all]
                :cljs [cljs.test :as t])
             #?(:clj [boot-cljs-test-example.helpers :refer [async]])
             [boot-cljs-test-example.lib :as lib]))
