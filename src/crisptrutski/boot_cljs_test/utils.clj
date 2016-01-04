@@ -36,14 +36,6 @@
     (instance? Pattern ns) ns
     :else (re-pattern (str "\\A" (name ns) "\\z"))))
 
-(defn ns->cljs-path
-  "Determine filename from namespace"
-  [ns]
-  (-> (str ns)
-      (str/replace "-" "_")
-      (str/replace "." "/")
-      (str ".cljs")))
-
 (defn ^Path filename->path
   "A sane constructor `java.nio.file.Path` instances."
   [filename]

@@ -4,7 +4,9 @@
    [clojure.string :as str]
    [boot.core :as core :refer [deftask]]
    [boot.util :refer [info dbug warn fail]]
-   [crisptrutski.boot-cljs-test.utils :as u])
+   [crisptrutski.boot-cljs-test.utils :as u]
+   [crisptrutski.boot-error.core :as err]
+   [crisptrutski.boot-wrap.core :as wrap])
   (:import
    [java.io File]))
 
@@ -13,12 +15,7 @@
    :doo              "0.1.7-SNAPSHOT"})
 
 (def default-js-env   :phantom)
-(def default-suite-ns 'clj-test.suite)
-(def default-output   "output.js")
-
-;; state
-
-(def failures? (atom false))
+(def default-ids      #{"cljs_test/suite"})
 
 ;; core
 
@@ -27,145 +24,157 @@
 
 (defn- gen-suite-ns
   "Generate source-code for default test suite."
-  [ns test-namespaces]
-  (let [ns-spec `(~'ns ~ns (:require [doo.runner :refer-macros [~'doo-tests ~'doo-all-tests]]
-                                     ~@(mapv vector test-namespaces)))
-        run-exp `(~'doo-tests ~@(map u/normalize-sym test-namespaces))]
-    (->> [ns-spec run-exp]
+  [ns namespaces]
+  (let [ns-spec `(~'ns ~ns (:require [doo.runner :refer-macros [~'doo-tests]]
+                                     ~@(mapv vector namespaces)))
+        run-exp `(~'doo-tests ~@(map u/normalize-sym namespaces))]
+    (->> [ns-spec '(enable-console-print!) '(println "** generated suite **") run-exp]
          (map #(with-out-str (clojure.pprint/pprint %)))
          (str/join "\n" ))))
 
 (defn add-suite-ns!
   "Add test suite bootstrap script to fileset."
-  [fileset tmp-main suite-ns test-namespaces]
+  [fileset tmp-main id namespaces]
   (ensure-deps! [:adzerk/boot-cljs])
-  (let [out-main (u/ns->cljs-path suite-ns)
-        out-file (doto (io/file tmp-main out-main) io/make-parents)
-        out-path (u/relativize (.getPath tmp-main) (.getPath out-file))
-        cljs     (u/cljs-files fileset)]
-    (if (contains? (into #{} (map core/tmp-path) cljs) out-path)
-      (do (info "Using %s...\n" out-path)
-          fileset)
-      (do (info "Writing %s...\n" out-path)
-          (spit out-file (gen-suite-ns suite-ns test-namespaces))
-          (-> fileset (core/add-source tmp-main) core/commit!)))))
+  (let [relative #(u/relativize (.getPath tmp-main) (.getPath %))
+        out-main (str id ".cljs")
+        src-file (doto (io/file tmp-main out-main) io/make-parents)
+        edn-file (io/file tmp-main (str out-main ".edn"))
+        src-path (relative src-file)
+        edn-path (relative edn-file)
+        exists?  (into #{} (map core/tmp-path) (u/cljs-files fileset))
+        suite?   (or (exists? src-path) (exists? (str/replace src-path ".cljs" ".cljc")))
+        edn?     (exists? edn-file)
+        suite-ns (u/file->ns out-main)]
+    ;; TODO: provide option to skip generating wrapper
+    (if suite?
+      (info "Using %s...\n" src-path)
+      (do (info "Writing %s...\n" src-path)
+          (spit src-file (gen-suite-ns suite-ns namespaces))))
+    (if edn?
+      (info "Using %s...\n" edn-path)
+      (do (info "Writing %s...\n" edn-path)
+          (spit edn-file {:require [suite-ns]})))
+    (if (and suite? edn?)
+      fileset
+      (core/commit! (core/add-source fileset tmp-main)))))
 
 (deftask prep-cljs-tests
   "Prepare fileset to compile main entry point for the test suite."
-  [o out-file   VAL str       "Output file for test script."
-   n namespaces NS ^:! #{str} "Namespaces whose tests will be run. All tests will be run if
+  [n namespaces NS ^:! #{str} "Namespaces whose tests will be run. All tests will be run if
                                ommitted.
                                Use symbols for literals.
                                Regexes are also supported.
                                Strings will be coerced to entire regexes."
-   s suite-ns   NS  sym       "Test entry point. If this is not provided, a namespace will be
-                               generated."]
-  (let [out-file (or out-file default-output)
-        suite-ns (or suite-ns default-suite-ns)
-        tmp-main (core/tmp-dir!)]
+   i id         VAL str       "TODO: WRITE ME"]
+  (let [tmp-main (core/tmp-dir!)]
     (core/with-pre-wrap fileset
       (let [namespaces (u/refine-namespaces fileset namespaces)]
         (core/empty-dir! tmp-main)
-        (add-suite-ns! fileset tmp-main suite-ns namespaces)))))
+        (add-suite-ns! fileset tmp-main id namespaces)))))
 
 (deftask run-cljs-tests
   "Execute test reporter on compiled tests"
-  [o out-file   VAL str  "Output file for test script."
-   e js-env     VAL kw   "The environment to run tests within, eg. slimer, phantom, node,
-                          or rhino."
-   c cljs-opts  VAL code "Compiler options for CLJS"
-   x exit?          bool "Exit immediately with reporter's exit code."]
-  (let [js-env   (or js-env default-js-env)
-        out-file (or out-file default-output)]
+  ;; TODO: perhaps vector rather than set, so you can control the running order
+  [i ids        IDS  #{str} ""
+   e js-env     VAL  kw     "Environment to execute within, eg. slimer, phantom, ..."
+   c cljs-opts  OPTS edn    "Options to pass to the Clojurescript compiler."
+   d debug?          bool   "Enable logging to help with debugging."
+   x exit?           bool   "Exit process with runner's exit code on completion."]
+  (let [js-env (or js-env default-js-env)
+        ids    (if (seq ids) ids default-ids)]
     (ensure-deps! [:doo])
-    ;;((r doo.core/assert-compiler-opts) js-env {:output-to out-file})
     (fn [next-task]
       (fn [fileset]
-        (info "Running cljs tests...")
-        (if-let [path (some->> (core/output-files fileset)
-                               (filter (comp #{out-file} :path))
-                               (sort-by :time)
-                               (last)
-                               (core/tmp-file)
-                               (.getPath))]
-          (let [dir (.getParentFile (File. path))
-                ;; TODO: could infer :asset-path and :main too
-                ;; TODO: perhaps better to get boot-cljs to share this parsing logic
-                cljs (merge cljs-opts {:output-to path, :output-dir (str/replace path #".js\z" ".out")})
-                opts {:exec-dir dir}
-                {:keys [exit] :as result}
-                ((u/r doo.core/run-script) js-env cljs opts)]
-            (when (pos? exit) (reset! failures? true))
-            (when exit? (System/exit exit))
-            (next-task fileset))
-          (do (warn (str "Test script not found: " out-file))
-              (when exit? (System/exit 1))))))))
-
-(defn- capture-fileset [fs-atom]
-  (fn [next-task]
-    (fn [fileset]
-      (reset! fs-atom fileset)
-      (next-task fileset))))
-
-(defn- return-fileset [fs-atom]
-  (fn [next-task]
-    (fn [_]
-      (let [fileset @fs-atom]
-        (core/commit! fileset)
-        (next-task fileset)))))
+        (next-task
+          (err/track-errors
+            (info "Running cljs tests...\n")
+            (doseq [id ids]
+              (when (> (count ids) 1)
+                (info "• %s\n" id))
+              (let [file (str id ".js")
+                    ;; TODO: perhaps use metadata on fileset from CLJS task rather
+                    path (some->> (core/output-files fileset)
+                                  (filter (comp #{file} :path))
+                                  (sort-by :time)
+                                  last
+                                  core/tmp-file
+                                  (#(.getPath ^File %)))
+                    ;; TODO: could also infer :asset-path and :main, perhaps even get boot-cljs to
+                    ;;       expose its own parsing logic
+                    cljs (merge
+                           cljs-opts
+                           {:output-to path, :output-dir (str/replace path #".js\z" ".out")})]
+                ;; TODO: perform this right at outset
+                ;; That should be as early as possible, ie. in `test-cljs` or start if this function if
+                ;; called directly. Note that some generated arguments, like :output-dir, would need
+                ;; to be fudged.
+                ;; In cases
+                ;; TODO: will need to fudge generated arguments
+                ;; TODO: if
+                ((u/r doo.core/assert-compiler-opts) js-env cljs)
+                (if-not path
+                  (do (warn "Test script not found: %s\n" file)
+                      (err/track-error! {:exit 1 :out ""  :err (format "Test script not found: %s" file)})
+                      (when exit? (System/exit 1)))
+                  (let [dir (.getParentFile (File. ^String path))
+                        {:keys [exit] :as result}
+                        ((u/r doo.core/run-script) js-env cljs {:exec-dir dir, :debug debug?})]
+                    (when (pos? exit)
+                      (err/track-error! result)
+                      (when exit?
+                        (System/exit exit)))))))
+            fileset))))))
 
 (deftask test-cljs
   "Run cljs.test tests via the engine of your choice.
 
    The --namespaces option specifies the namespaces to test. The default is to
    run tests in all namespaces found in the project."
-  [e js-env        VAL   kw      "The environment to run tests within, eg. slimer, phantom, node,
-                                  or rhino"
-   n namespaces    NS ^:! #{str} "Namespaces whose tests will be run. All tests will be run if
-                                  ommitted."
-   s suite-ns      NS    sym     "Test entry point. If this is not provided, a namespace will be
-                                  generated."
-   O optimizations LEVEL kw      "The optimization level."
-   o out-file      VAL   str     "Output file for test script."
-   c cljs-opts     VAL   code    "Compiler options for CLJS"
-   u update-fs?          bool    "Only if this is set does the next task's filset include
-                                  and generated or compiled cljs from the tests."
-   x exit?               bool    "Exit immediately with reporter's exit code."]
+  [e js-env        VAL   kw      "Environment to execute within, eg. slimer, phantom, ..."
+   n namespaces    NS ^:! #{str} "Namepsaces or namespace patterns to run.
+                                  If omitted uses all namespaces ending in \"-test\"."
+   ;; TODO: support exclusions
+   w exclusions    NS ^:! #{str} "Namespaces or namesaces patterns to exclude."
+   O optimizations LEVEL kw      "The optimization level, defaults to :none."
+   i ids           IDS   #{str}  ""
+   o out-file      VAL   str     "DEPRECATED Output file for test script."
+   c cljs-opts     OPTS  edn     "Options to pass to the Clojurescript compiler."
+   d debug?              bool    "Enable logging to help with debugging."
+   u update-fs?          bool    "Enable fileset changes to be passed on to next task.
+                                  By default hides all effects for suite isolation."
+   x exit?               bool    "Exit process with runner's exit code on completion."]
   (ensure-deps! [:doo :adzerk/boot-cljs])
-  (let [out-file      (or out-file default-output)
-        out-id        (str/replace out-file #"\.js$" "")
+  (let [ids           (if (seq ids) ids default-ids)
         optimizations (or optimizations :none)
         js-env        (or js-env default-js-env)
-        suite-ns      (or suite-ns default-suite-ns)
-        cljs-opts     (merge {:main suite-ns, :optimizations optimizations}
+        cljs-opts     (merge {:optimizations optimizations}
                              (when (= :node js-env) {:target :nodejs, :hashbang false})
-                             cljs-opts)
-        capture-atom  (atom nil)
-        ->fs          (if update-fs? identity (capture-fileset capture-atom))
-        fs->          (if update-fs? identity (return-fileset capture-atom))]
-    (if (and (= :none optimizations)
-             (= :rhino js-env))
-      (do
-        (fail "Combination of :rhino and :none is not currently supported.\n")
-        (if exit?
-          (System/exit 1)
-          identity))
-      (comp ->fs
-            (prep-cljs-tests :out-file out-file
-                             :namespaces namespaces
-                             :suite-ns suite-ns)
-            ((u/r adzerk.boot-cljs/cljs)
-             :ids              #{out-id}
-             :compiler-options cljs-opts)
-            (run-cljs-tests :out-file out-file
-                            :cljs-opts cljs-opts
-                            :js-env js-env
-                            :exit? exit?)
-            fs->))))
+                             cljs-opts)]
+    (if (and (= :none optimizations) (= :rhino js-env))
+      (do (fail "Combination of :rhino and :none is not currently supported.\n")
+          (if exit? (System/exit 1) identity))
+      ((wrap/run-if (not update-fs?) wrap/rollback-fs)
+        (comp (reduce comp
+                      (for [id ids]
+                        (prep-cljs-tests
+                          :id id
+                          :namespaces namespaces
+                          :exclusions exclusions)))
+              ((u/r adzerk.boot-cljs/cljs)
+                :ids ids
+                :compiler-options cljs-opts)
+              (run-cljs-tests
+                :ids ids
+                :cljs-opts cljs-opts
+                :js-env js-env
+                :exit? exit?
+                :debug? debug?))))))
 
 (deftask exit!
   "Exit with the appropriate error code"
   []
   (fn [_]
-    (fn [_]
-      (System/exit (if @failures? 1 0)))))
+    (fn [fs]
+      (let [errs (err/get-errors fs)]
+        (System/exit (if (seq errs) 1 0))))))

@@ -26,7 +26,13 @@
 (deftask test-suite []
   (comp (testing)
         (test-cljs :exit? true
-                   :suite-ns 'boot-cljs-test-example.suite)))
+                   :ids #{"boot_cljs_test_example/suite"})))
+
+(deftask test-ids []
+  (comp (testing)
+        (test-cljs :ids ["unit" "integration"] :update-fs? true)
+        (target)
+        (exit!)))
 
 (deftask test-all []
   (comp (testing)
@@ -36,7 +42,7 @@
 
 (deftask test-some []
   (comp (testing)
-        (test-cljs :namespaces [#".*\.lib.*"])
+        (test-cljs :namespaces [#".*\.lib.*" "wutc"])
         (exit!)))
 
 (deftask auto-test []
