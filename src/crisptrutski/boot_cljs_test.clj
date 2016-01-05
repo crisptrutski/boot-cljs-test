@@ -61,11 +61,15 @@
                                generated."]
   (assert (or (nil? namespaces) (set? namespaces)) "Namespaces should be a set")
   (let [out-file (or out-file default-output)
+        out-id   (str/replace out-file #"\.js$" "")
         suite-ns (or suite-ns default-suite-ns)
         tmp-main (core/tmp-dir!)]
     (core/with-pre-wrap fileset
       (let [namespaces (u/refine-namespaces fileset namespaces)]
         (core/empty-dir! tmp-main)
+        (info "Writing %s...\n" (str out-id ".cljs.edn"))
+        (spit (doto (io/file tmp-main (str out-id ".cljs.edn")) io/make-parents)
+              (pr-str {:require [suite-ns]}))
         (add-suite-ns! fileset tmp-main suite-ns namespaces)))))
 
 (deftask run-cljs-tests
