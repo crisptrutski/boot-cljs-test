@@ -53,13 +53,13 @@
 (deftask prep-cljs-tests
   "Prepare fileset to compile main entry point for the test suite."
   [o out-file   VAL str       "Output file for test script."
-   n namespaces NS ^:! #{str} "Namespaces whose tests will be run. All tests will be run if
-                               ommitted.
+   n namespaces NS ^:! code   "Set of namespaces whose tests will be run. All tests will be run if ommitted.
                                Use symbols for literals.
                                Regexes are also supported.
                                Strings will be coerced to entire regexes."
    s suite-ns   NS  sym       "Test entry point. If this is not provided, a namespace will be
                                generated."]
+  (assert (or (nil? namespaces) (set? namespaces)) "Namespaces should be a set")
   (let [out-file (or out-file default-output)
         suite-ns (or suite-ns default-suite-ns)
         tmp-main (core/tmp-dir!)]
@@ -121,7 +121,7 @@
    run tests in all namespaces found in the project."
   [e js-env        VAL   kw      "The environment to run tests within, eg. slimer, phantom, node,
                                   or rhino"
-   n namespaces    NS ^:! #{str} "Namespaces whose tests will be run. All tests will be run if
+   n namespaces    NS ^:! edn    "Namespaces whose tests will be run. All tests will be run if
                                   ommitted."
    s suite-ns      NS    sym     "Test entry point. If this is not provided, a namespace will be
                                   generated."
@@ -132,6 +132,7 @@
                                   and generated or compiled cljs from the tests."
    x exit?               bool    "Exit immediately with reporter's exit code."]
   (ensure-deps! [:doo :adzerk/boot-cljs])
+  (assert (or (nil? namespaces) (set? namespaces)) "Namespaces should be a set")
   (let [out-file      (or out-file default-output)
         out-id        (str/replace out-file #"\.js$" "")
         optimizations (or optimizations :none)
