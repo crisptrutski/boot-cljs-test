@@ -44,11 +44,9 @@
         out-path (u/relativize (.getPath tmp-main) (.getPath out-file))
         cljs     (u/cljs-files fileset)]
     (if (contains? (into #{} (map core/tmp-path) cljs) out-path)
-      (do (info "Using %s...\n" out-path)
-          fileset)
+      (info "Using %s...\n" out-path)
       (do (info "Writing %s...\n" out-path)
-          (spit out-file (gen-suite-ns suite-ns test-namespaces))
-          (-> fileset (core/add-source tmp-main) core/commit!)))))
+          (spit out-file (gen-suite-ns suite-ns test-namespaces))))))
 
 (deftask prep-cljs-tests
   "Prepare fileset to compile main entry point for the test suite."
@@ -61,12 +59,17 @@
    s suite-ns   NS  sym       "Test entry point. If this is not provided, a namespace will be
                                generated."]
   (let [out-file (or out-file default-output)
+        out-id   (str/replace out-file #"\.js$" "")
         suite-ns (or suite-ns default-suite-ns)
         tmp-main (core/tmp-dir!)]
     (core/with-pre-wrap fileset
       (let [namespaces (u/refine-namespaces fileset namespaces)]
         (core/empty-dir! tmp-main)
-        (add-suite-ns! fileset tmp-main suite-ns namespaces)))))
+        (info "Writing %s...\n" (str out-id ".cljs.edn"))
+        (spit (doto (io/file tmp-main (str out-id ".cljs.edn")) io/make-parents)
+              (pr-str {:require [suite-ns]}))
+        (add-suite-ns! fileset tmp-main suite-ns namespaces)
+        (-> fileset (core/add-source tmp-main) core/commit!)))))
 
 (deftask run-cljs-tests
   "Execute test reporter on compiled tests"

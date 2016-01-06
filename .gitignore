@@ -2,3 +2,4 @@ target
 .nrepl-*
 
 project.clj
+.idea
