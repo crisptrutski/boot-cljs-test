@@ -13,8 +13,8 @@
   {:adzerk/boot-cljs "1.7.170-3"
    :doo              "0.1.7-SNAPSHOT"})
 
-(def default-js-env   :phantom)
-(def default-ids      #{"cljs_test/suite"})
+(def default-js-env :phantom)
+(def default-ids    #{"cljs_test/suite"})
 
 ;; core
 
@@ -24,10 +24,9 @@
 (defn- gen-suite-ns
   "Generate source-code for default test suite."
   [ns namespaces]
-  (let [ns-spec `(~'ns ~ns (:require [doo.runner :refer-macros [~'doo-tests]]
-                                     ~@(mapv vector namespaces)))
+  (let [ns-spec `(~'ns ~ns (:require [doo.runner :refer-macros [~'doo-tests]] ~@(mapv vector namespaces)))
         run-exp `(~'doo-tests ~@(map u/normalize-sym namespaces))]
-    (->> [ns-spec '(enable-console-print!) '(println "** generated suite **") run-exp]
+    (->> [ns-spec '(enable-console-print!) run-exp]
          (map #(with-out-str (clojure.pprint/pprint %)))
          (str/join "\n" ))))
 
@@ -35,23 +34,32 @@
   "Add test suite bootstrap script to fileset."
   [fileset tmp-main id namespaces]
   (ensure-deps! [:adzerk/boot-cljs])
-  (let [relative #(u/relativize (.getPath tmp-main) (.getPath %))
-        out-main (str id ".cljs")
-        src-file (doto (io/file tmp-main out-main) io/make-parents)
-        edn-file (io/file tmp-main (str out-main ".edn"))
-        src-path (relative src-file)
-        edn-path (relative edn-file)
-        exists?  (into #{} (map core/tmp-path) (u/cljs-files fileset))
-        suite?   (or (exists? src-path) (exists? (str/replace src-path ".cljs" ".cljc")))
-        edn?     (exists? edn-file)
-        suite-ns (u/file->ns out-main)]
-    ;; TODO: provide option to skip generating wrapper
+  (let [relative   #(u/relativize (.getPath tmp-main) (.getPath %))
+        out-main   (str id ".cljs")
+        src-file   (doto (io/file tmp-main out-main) io/make-parents)
+        edn-file   (io/file tmp-main (str out-main ".edn"))
+        src-path   (relative src-file)
+        edn-path   (relative edn-file)
+        exists?    (into #{} (map core/tmp-path) (u/cljs-files fileset))
+        suite?     (or (exists? src-path) (exists? (str/replace src-path ".cljs" ".cljc")))
+        edn?       (exists? edn-path)
+        edn        (when edn? (read-string (slurp (core/tmp-file (core/tmp-get fileset edn-path)))))
+        ;; subset namespaces to those directly required by .cljs.edn
+        ;; TODO: better would be to use transitive requires, once we have the dep graph
+        namespaces (if edn (filter (set (:require edn)) namespaces) namespaces)
+        suite-ns   (u/file->ns out-main)]
     (if suite?
       (info "Using %s...\n" src-path)
-      (do (info "Writing %s...\n" src-path)
-          (spit src-file (gen-suite-ns suite-ns namespaces))))
+      (do
+        (info "Writing %s...\n" src-path)
+        (spit src-file (gen-suite-ns suite-ns namespaces))))
     (if edn?
-      (info "Using %s...\n" edn-path)
+      ;; ensure that .cljs file is required by .cljs.edn, if it's being created.
+      (if suite?
+        (info "Using %s...\n" edn-path)
+        (do (info "Updating %s...\n" edn-path)
+            (spit edn-file (update edn :require (fn [xs] (when-not (some #{suite-ns} xs)
+                                                           (conj xs suite-ns)))))))
       (do (info "Writing %s...\n" edn-path)
           (spit edn-file {:require [suite-ns]})))
     (if (and suite? edn?)
@@ -65,10 +73,11 @@
                                Use symbols for literals.
                                Regexes are also supported.
                                Strings will be coerced to entire regexes."
+   w exclusions NS ^:! #{str} "Namespaces or namesaces patterns to exclude."
    i id         VAL str       "TODO: WRITE ME"]
   (let [tmp-main (core/tmp-dir!)]
     (core/with-pre-wrap fileset
-      (let [namespaces (u/refine-namespaces fileset namespaces)]
+      (let [namespaces (u/refine-namespaces fileset namespaces exclusions)]
         (core/empty-dir! tmp-main)
         (add-suite-ns! fileset tmp-main id namespaces)))))
 
@@ -88,6 +97,7 @@
         (next-task
           (err/track-errors
             (info "Running cljs tests...\n")
+            ((u/r doo.core/print-envs) js-env)
             (doseq [id ids]
               (when (> (count ids) 1)
                 (info "• %s\n" id))
@@ -101,9 +111,7 @@
                                   (#(.getPath ^File %)))
                     ;; TODO: could also infer :asset-path and :main, perhaps even get boot-cljs to
                     ;;       expose its own parsing logic
-                    cljs (merge
-                           cljs-opts
-                           {:output-to path, :output-dir (str/replace path #".js\z" ".out")})]
+                    cljs (merge cljs-opts {:output-to path, :output-dir (str/replace path #".js\z" ".out")})]
                 ;; TODO: perform this right at outset
                 ;; That should be as early as possible, ie. in `test-cljs` or start if this function if
                 ;; called directly. Note that some generated arguments, like :output-dir, would need
@@ -155,6 +163,7 @@
                               ((wrapped-handler (fn [_])) fileset)
                               (core/commit! fileset)
                               (handler fileset)))))]
+    ;; TODO: this is just one of many warnings doo can emit, rather resuse those
     (if (and (= :none optimizations) (= :rhino js-env))
       (do (fail "Combination of :rhino and :none is not currently supported.\n")
           (if exit? (System/exit 1) identity))

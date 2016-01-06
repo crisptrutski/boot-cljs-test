@@ -5,7 +5,7 @@
                     [adzerk/boot-cljs-repl       "0.3.0"          :scope "test"]
                     [adzerk/boot-reload          "0.4.2"          :scope "test"]
                     [pandeiro/boot-http          "0.7.0"          :scope "test"]
-                    [crisptrutski/boot-cljs-test "0.2.1-SNAPSHOT" :scope "test"]
+                    [crisptrutski/boot-cljs-test "0.3.0-SNAPSHOT" :scope "test"]
                     [org.clojure/clojurescript   "1.7.189"]
                     [adzerk/boot-test            "1.0.6"]])
 
@@ -30,20 +30,19 @@
 
 (deftask test-ids []
   (comp (testing)
-        (test-cljs :ids ["unit" "integration"] :update-fs? true)
-        (target)
-        (exit!)))
-
-(deftask test-all []
-  (comp (testing)
-        (test-cljs)
-        (test)
-        (exit!)))
+        (test-cljs :ids ["boot_cljs_test_example/unit"
+                         "boot_cljs_test_example/integration_suite"])))
 
 (deftask test-some []
   (comp (testing)
         (test-cljs :namespaces [#".*\.lib.*" "wutc"])
         (exit!)))
+
+(deftask test-all []
+         (comp (testing)
+               (test-cljs)
+               (test)
+               (exit!)))
 
 (deftask auto-test []
   (comp (testing)

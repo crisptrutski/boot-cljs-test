@@ -66,21 +66,24 @@
        (filter src-file?)
        (map #(file->ns (relativize dir %)))))
 
-(defn refine-namespaces [fs namespaces]
+(defn refine-namespaces [fs namespaces exclusions]
   (if (and (seq namespaces) (every? ns-literal? namespaces))
     namespaces
-    (let [regexes (map ns-regex namespaces)]
+    (let [regexes (map ns-regex namespaces)
+          exclude (map ns-regex exclusions)]
       (->> (core/input-dirs fs)
            (mapv (memfn getPath))
            (into #{} (mapcat ns-from-dir))
-           (filter (fn [ns] (or (and (empty? regexes)
-                                     (re-find #"-test\z" (str ns)))
-                                (some #(re-find % (str ns)) regexes))))))))
+           (filter (fn [ns]
+                     (let [s (str ns)]
+                       (and (or (and (empty? regexes) (re-find #"-test\z" s))
+                                (some #(re-find % s) regexes))
+                            (not (some #(re-find % s) exclude))))))))))
 
 (defn cljs-files
   "Given a fileset, return a list of all the ClojureScript source files."
   [fileset]
   (->> fileset
        core/input-files
-       (core/by-ext [".cljs" ".cljc"])
+       (core/by-ext [".cljs" ".cljc" ".cljs.edn"])
        (sort-by :path)))
