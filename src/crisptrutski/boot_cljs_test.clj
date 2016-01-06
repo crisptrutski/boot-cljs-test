@@ -5,8 +5,7 @@
    [boot.core :as core :refer [deftask]]
    [boot.util :refer [info dbug warn fail]]
    [crisptrutski.boot-cljs-test.utils :as u]
-   [crisptrutski.boot-error.core :as err]
-   [crisptrutski.boot-wrap.core :as wrap])
+   [crisptrutski.boot-error.core :as err])
   (:import
    [java.io File]))
 
@@ -109,9 +108,6 @@
                 ;; That should be as early as possible, ie. in `test-cljs` or start if this function if
                 ;; called directly. Note that some generated arguments, like :output-dir, would need
                 ;; to be fudged.
-                ;; In cases
-                ;; TODO: will need to fudge generated arguments
-                ;; TODO: if
                 ((u/r doo.core/assert-compiler-opts) js-env cljs)
                 (if-not path
                   (do (warn "Test script not found: %s\n" file)
@@ -150,11 +146,19 @@
         js-env        (or js-env default-js-env)
         cljs-opts     (merge {:optimizations optimizations}
                              (when (= :node js-env) {:target :nodejs, :hashbang false})
-                             cljs-opts)]
+                             cljs-opts)
+        wrapper       (if update-fs?
+                        identity
+                        (fn [wrapped-handler]
+                          (fn [handler]
+                            (fn [fileset]
+                              ((wrapped-handler (fn [_])) fileset)
+                              (core/commit! fileset)
+                              (handler fileset)))))]
     (if (and (= :none optimizations) (= :rhino js-env))
       (do (fail "Combination of :rhino and :none is not currently supported.\n")
           (if exit? (System/exit 1) identity))
-      ((wrap/run-if (not update-fs?) wrap/rollback-fs)
+      (wrapper
         (comp (reduce comp
                       (for [id ids]
                         (prep-cljs-tests
