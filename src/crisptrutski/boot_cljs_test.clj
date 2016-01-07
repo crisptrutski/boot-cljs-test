@@ -71,6 +71,30 @@
         (add-suite-ns! fileset tmp-main suite-ns namespaces)
         (-> fileset (core/add-source tmp-main) core/commit!)))))
 
+(def last-doo-run (atom nil))
+
+(deftask doo-run
+  [e js-env     VAL kw   "The environment to run tests within, eg. phantom"
+   c cljs-opts  VAL code "Compiler options for CLJS"
+   o doo-opts   VAL code "Doo configuration options"
+   p paths      VAL code "Override for :paths in Doo options"
+   a alias      VAL code "Override for :alias in Doo options"]
+  (core/with-pre-wrap fs
+    (reset! last-doo-run
+            ((u/r doo.core/run-script)
+              js-env
+              cljs-opts
+              (cond-> doo-opts
+                      paths (assoc :paths paths)
+                      alias (assoc :alias alias))))
+    fs))
+
+(defn doo-run! [fs js-env cljs-opts doo-opts]
+  (((doo-run :js-env js-env
+             :cljs-opts cljs-opts
+             :doo-opts doo-opts) identity) fs)
+  @last-doo-run)
+
 (deftask run-cljs-tests
   "Execute test reporter on compiled tests"
   [o out-file   VAL str  "Output file for test script."
@@ -96,7 +120,7 @@
                 cljs (merge cljs-opts {:output-to path, :output-dir (str/replace path #".js\z" ".out")})
                 opts {:exec-dir dir}
                 {:keys [exit] :as result}
-                ((u/r doo.core/run-script) js-env cljs opts)]
+                (doo-run! fileset js-env cljs opts)]
             (when (pos? exit) (reset! failures? true))
             (when exit? (System/exit exit))
             (next-task fileset))
