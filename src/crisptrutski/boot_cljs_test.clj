@@ -74,8 +74,7 @@
 (deftask run-cljs-tests
   "Execute test reporter on compiled tests"
   [o out-file   VAL str  "Output file for test script."
-   e js-env     VAL kw   "The environment to run tests within, eg. slimer, phantom, node,
-                          or rhino."
+   e js-env     VAL kw   "The environment to run tests within, eg. phantom"
    c cljs-opts  VAL code "Compiler options for CLJS"
    x exit?          bool "Exit immediately with reporter's exit code."]
   (let [js-env   (or js-env default-js-env)
@@ -122,8 +121,7 @@
 
    The --namespaces option specifies the namespaces to test. The default is to
    run tests in all namespaces found in the project."
-  [e js-env        VAL   kw      "The environment to run tests within, eg. slimer, phantom, node,
-                                  or rhino"
+  [e js-env        VAL   kw      "The environment to run tests within, eg. phantom"
    n namespaces    NS ^:! #{str} "Namespaces whose tests will be run. All tests will be run if
                                   ommitted."
    s suite-ns      NS    sym     "Test entry point. If this is not provided, a namespace will be
