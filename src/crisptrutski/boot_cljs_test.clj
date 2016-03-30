@@ -13,7 +13,7 @@
    :doo              "0.1.7-SNAPSHOT"})
 
 (def default-js-env   :phantom)
-(def default-suite-ns 'clj-test.suite)
+(def default-suite-ns 'cljs-test.suite)
 (def default-output   "output.js")
 
 ;; state
@@ -83,7 +83,7 @@
     ;;((r doo.core/assert-compiler-opts) js-env {:output-to out-file})
     (fn [next-task]
       (fn [fileset]
-        (info "Running cljs tests...")
+        (info "Running cljs tests...\n")
         (if-let [path (some->> (core/output-files fileset)
                                (filter (comp #{out-file} :path))
                                (sort-by :time)
