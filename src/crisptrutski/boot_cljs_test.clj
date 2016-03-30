@@ -100,8 +100,8 @@
             (when (pos? exit) (reset! failures? true))
             (when exit? (System/exit exit))
             (next-task fileset))
-          (do (warn (str "Test script not found: " out-file))
-              (when exit? (System/exit 1))))))))
+          (do (warn "Test script not found: %s\n" out-file)
+              (if exit? (System/exit 1) (next-task fileset))))))))
 
 (defn- capture-fileset [fs-atom]
   (fn [next-task]
