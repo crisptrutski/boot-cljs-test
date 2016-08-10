@@ -75,8 +75,8 @@
   "Execute test reporter on compiled tests"
   [o out-file   VAL str  "Output file for test script."
    e js-env     VAL kw   "The environment to run tests within, eg. phantom"
-   d doo-opts   VAL code "Options to pass to Doo"
    c cljs-opts  VAL code "Compiler options for CLJS"
+   d doo-opts   VAL code "Options to pass to doo"
    x exit?          bool "Exit immediately with reporter's exit code."]
   (let [js-env   (or js-env default-js-env)
         out-file (or out-file default-output)]
@@ -130,6 +130,7 @@
    O optimizations LEVEL kw      "The optimization level."
    o out-file      VAL   str     "Output file for test script."
    c cljs-opts     VAL   code    "Compiler options for CLJS"
+   d doo-opts      VAL   code    "Options for doo"
    u update-fs?          bool    "Only if this is set does the next task's filset include
                                   and generated or compiled cljs from the tests."
    x exit?               bool    "Exit immediately with reporter's exit code."]
@@ -161,6 +162,7 @@
              :compiler-options cljs-opts)
             (run-cljs-tests :out-file out-file
                             :cljs-opts cljs-opts
+                            :doo-opts doo-opts
                             :js-env js-env
                             :exit? exit?)
             fs->))))
