@@ -76,6 +76,7 @@
   [o out-file   VAL str  "Output file for test script."
    e js-env     VAL kw   "The environment to run tests within, eg. phantom"
    c cljs-opts  VAL code "Compiler options for CLJS"
+   d doo-opts   VAL code "Options to pass to doo"
    x exit?          bool "Exit immediately with reporter's exit code."]
   (let [js-env   (or js-env default-js-env)
         out-file (or out-file default-output)]
@@ -94,7 +95,7 @@
                 ;; TODO: could infer :asset-path and :main too
                 ;; TODO: perhaps better to get boot-cljs to share this parsing logic
                 cljs (merge cljs-opts {:output-to path, :output-dir (str/replace path #".js\z" ".out")})
-                opts {:exec-dir dir}
+                opts (merge doo-opts {:exec-dir dir})
                 {:keys [exit] :as result}
                 ((u/r doo.core/run-script) js-env cljs opts)]
             (when (pos? exit) (reset! failures? true))
@@ -129,6 +130,7 @@
    O optimizations LEVEL kw      "The optimization level."
    o out-file      VAL   str     "Output file for test script."
    c cljs-opts     VAL   code    "Compiler options for CLJS"
+   d doo-opts      VAL   code    "Options for doo"
    u update-fs?          bool    "Only if this is set does the next task's filset include
                                   and generated or compiled cljs from the tests."
    x exit?               bool    "Exit immediately with reporter's exit code."]
@@ -160,6 +162,7 @@
              :compiler-options cljs-opts)
             (run-cljs-tests :out-file out-file
                             :cljs-opts cljs-opts
+                            :doo-opts doo-opts
                             :js-env js-env
                             :exit? exit?)
             fs->))))
