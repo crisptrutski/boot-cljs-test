@@ -208,11 +208,3 @@
   (ensure-deps! [:adzerk/boot-cljs])
   (-test-cljs
     js-env namespaces exclusions optimizations ids out-file cljs-opts verbosity update-fs? exit?))
-
-(deftask exit!
-  "Exit with the appropriate error code"
-  []
-  (fn [_]
-    (fn [fs]
-      (let [errs (err/get-errors fs)]
-        (System/exit (if (seq errs) 1 0))))))
