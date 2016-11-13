@@ -120,6 +120,7 @@
         ((u/r doo.core/assert-compiler-opts) js-env cljs-opts)
         (if-not output-to
           (do (warn "Test script not found: %s\n" filename)
+              (swap!  core/*warnings* inc)
               (err (format "Test script not found: %s" filename)))
           (let [dir (.getParentFile (File. ^String output-to))
                 {:keys [exit] :as result}
@@ -161,7 +162,9 @@
 (defn -test-cljs
   [js-env namespaces exclusions optimizations ids out-file cljs-opts verbosity update-fs? exit?]
   (ensure-deps! [:adzerk/boot-cljs])
-  (when out-file (warn "[boot-cljs] :out-file is deprecated, please use :ids\n"))
+  (when out-file
+    (warn "[boot-cljs] :out-file is deprecated, please use :ids\n")
+    (swap! core/*warnings* inc))
   (let [verbosity (or verbosity @boot.util/*verbosity*)
         ids (if (seq ids) ids (if out-file (str/replace out-file #"\.js\z" "") default-ids))
         optimizations (or optimizations :none)

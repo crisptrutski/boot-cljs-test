@@ -14,6 +14,7 @@ x Support early vs late exit (another artifact of multiple IDs)
 - Remove global state for fileset revert
 - Remove global state for deferred errors
 - Bump default injected dependencies | list actual version
+- Support verbosity control with boot -v syntax.
 
 ## 0.2.2
 
