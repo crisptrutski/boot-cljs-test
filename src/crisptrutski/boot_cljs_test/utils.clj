@@ -114,7 +114,7 @@
          (when (= :node js-env) {:target :nodejs, :hashbang false})
          cljs-opts))
 
-(defn wrap-fs-rolback
+(defn wrap-fs-rollback
   "Roll back any fileset changes from handler, but preserve error metadata"
   [wrapped-handler]
   (fn [handler]

@@ -84,7 +84,7 @@
       fileset
       (core/commit! (core/add-source fileset tmp-main)))))
 
-(deftask prep-cljs-tests
+(deftask prepare-fs
   "Prepare fileset to compile main entry point for the test suite."
   [n namespaces NS ^:! #{str} "Namespaces whose tests will be run. All tests will be run if
                                ommitted.
@@ -167,20 +167,20 @@
         optimizations (or optimizations :none)
         js-env (or js-env default-js-env)
         cljs-opts (u/combine-cljs-opts cljs-opts optimizations js-env)
-        wrapper (if update-fs? identity u/wrap-fs-rolback)]
+        wrapper (if update-fs? identity u/wrap-fs-rollback)]
     (validate-cljs-opts! js-env cljs-opts)
     (wrapper
       (comp (reduce
               comp
               (for [id ids]
-                (prep-cljs-tests
+                (prepare-fs
                   :id id
                   :namespaces namespaces
                   :exclusions exclusions)))
             ((u/r adzerk.boot-cljs/cljs)
               :ids (set ids)
               :compiler-options cljs-opts)
-            (run-cljs-tests
+            (run-tests
               :ids (vec (distinct ids))
               :cljs-opts cljs-opts
               :js-env js-env
@@ -205,6 +205,4 @@
                                   By default hides all effects for suite isolation."
    v verbosity     VAL    int    "Verbosity level"
    x exit? bool "Exit process with runner's exit code on completion."]
-  (ensure-deps! [:adzerk/boot-cljs])
-  (-test-cljs
-    js-env namespaces exclusions optimizations ids out-file cljs-opts verbosity update-fs? exit?))
+  (-test-cljs js-env namespaces exclusions optimizations ids out-file cljs-opts verbosity update-fs? exit?))
