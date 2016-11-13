@@ -14,7 +14,7 @@
    :doo "0.1.7"})
 
 (def default-js-env :phantom)
-(def default-ids ["cljs_test/suite"])
+(def default-ids ["cljs_test/generated_test_suite"])
 
 ;; core
 
