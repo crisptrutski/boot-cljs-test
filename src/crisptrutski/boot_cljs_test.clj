@@ -33,6 +33,7 @@
     (core/merge-env! :dependencies (scope-as "test" deps))))
 
 (defn validate-cljs-opts! [js-env cljs-opts]
+  (ensure-deps! [:doo])
   ((u/r doo.core/assert-compiler-opts)
     js-env
     (assoc cljs-opts
