@@ -113,12 +113,14 @@
       (let [filename (str id ".js")
             output-to (u/find-path fileset filename)
             output-dir (str/replace output-to #"\.js\z" ".out")
-            cljs-opts (u/build-cljs-opts cljs-opts output-to output-dir)]
+            cljs-opts (u/build-cljs-opts cljs-opts output-to output-dir)
+            err (if exit?
+                  #(throw (RuntimeException. ^String (:out % %)))
+                  #(err/track-error! (if (map? %) % {:exit 1 :out "" :err %})))]
         ((u/r doo.core/assert-compiler-opts) js-env cljs-opts)
         (if-not output-to
           (do (warn "Test script not found: %s\n" filename)
-              (err/track-error! {:exit 1 :out "" :err (format "Test script not found: %s" filename)})
-              (when exit? (System/exit 1)))
+              (err (format "Test script not found: %s" filename)))
           (let [dir (.getParentFile (File. ^String output-to))
                 {:keys [exit] :as result}
                 ((u/r doo.core/run-script) js-env cljs-opts
@@ -128,18 +130,17 @@
                      :verbose (>= verbosity 1)
                      :debug (>= verbosity 2)}))]
             (when (pos? exit)
-              (err/track-error! result)
-              (when exit? (System/exit exit)))))))
+              (err result))))))
     fileset))
 
-(deftask run-cljs-tests
+(deftask run-tests
   "Execute test reporter on compiled tests"
   [i ids       IDS [str] ""
    j js-env    VAL kw    "Environment to execute within, eg. slimer, phantom, ..."
    c cljs-opts OPTS edn  "Options to pass to the Clojurescript compiler."
    v verbosity VAL int   "Log level"
    d doo-opts  VAL code  "Options for doo"
-   x exit?         bool  "Exit process with runner's exit code on completion."]
+   x exit?         bool  "End process on failure."]
   (ensure-deps! [:doo])
   (let [js-env (or js-env default-js-env)
         ids (if (seq ids) ids default-ids)
@@ -148,6 +149,14 @@
     (fn [next-task]
       (fn [fileset]
         (next-task (run-cljs-tests! ids js-env cljs-opts verbosity exit? doo-opts verbosity fileset))))))
+
+(deftask report-errors!
+  []
+  (fn [handler]
+    (fn [fs]
+      (when (seq (err/get-errors fs))
+        (throw (RuntimeException. "Some tests failed or errored")))
+      (handler (err/clear-errors fs)))))
 
 (defn -test-cljs
   [js-env namespaces exclusions optimizations ids out-file cljs-opts verbosity update-fs? exit?]
@@ -176,7 +185,8 @@
               :cljs-opts cljs-opts
               :js-env js-env
               :exit? exit?
-              :verbosity verbosity)))))
+              :verbosity verbosity)
+            (if exit? (report-errors!) identity)))))
 
 (deftask test-cljs
   "Run cljs.test tests via the engine of your choice.
