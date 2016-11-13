@@ -10,8 +10,8 @@
     [java.io File]))
 
 (def deps
-   :doo "0.1.7-SNAPSHOT"})
   {:adzerk/boot-cljs "1.9.293"
+   :doo "0.1.7"})
 
 (def default-js-env :phantom)
 (def default-ids ["cljs_test/suite"])
