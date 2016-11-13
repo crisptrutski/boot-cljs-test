@@ -104,7 +104,7 @@
 (defn- info? [verbosity & args]
   (when (pos? verbosity) (apply info args)))
 
-(defn run-cljs-tests! [ids js-env cljs-opts v exit? doo-opts fileset]
+(defn run-cljs-tests! [ids js-env cljs-opts v exit? doo-opts verbosity fileset]
   (err/with-errors!
     (info? v "Running cljs tests...\n")
     ((u/r doo.core/print-envs) js-env)
@@ -147,7 +147,7 @@
     (validate-cljs-opts! js-env cljs-opts)
     (fn [next-task]
       (fn [fileset]
-        (next-task (run-cljs-tests! ids js-env cljs-opts verbosity exit? doo-opts fileset))))))
+        (next-task (run-cljs-tests! ids js-env cljs-opts verbosity exit? doo-opts verbosity fileset))))))
 
 (defn -test-cljs
   [js-env namespaces exclusions optimizations ids out-file cljs-opts verbosity update-fs? exit?]
