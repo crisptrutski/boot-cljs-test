@@ -2,7 +2,9 @@
 
 (def ^:dynamic *errs* (atom nil))
 
-(defn- conjv [xs x]
+(defn- conjv
+  "Push item onto end of collection. Coerces to vector so that subsequent appends are cheap."
+  [xs x]
   (conj (vec xs) x))
 
 (defn track-error

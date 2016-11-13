@@ -41,7 +41,8 @@
 (defn ^Path filename->path
   "A sane constructor `java.nio.file.Path` instances."
   [filename]
-  ;; Workaround for bad time with types (can't hint (Paths/get ^String))
+  ;; Workaround for bad time with native dispatch and Java splat.
+  ;; Otherwise dispatches to URI even with ^String hint.
   (Paths/get filename (into-array String nil)))
 
 (defn relativize
@@ -74,7 +75,7 @@
     (let [regexes (map ns-regex namespaces)
           exclude (map ns-regex exclusions)]
       (->> (core/input-dirs fs)
-           (mapv (memfn getPath))
+           (mapv #(.getPath %))
            (into #{} (mapcat ns-from-dir))
            (filter (fn [ns]
                      (let [s (str ns)]
