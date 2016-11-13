@@ -1,8 +1,10 @@
 (ns crisptrutski.boot-cljs-test.utils
   (:require
+    [boot.core :as core]
     [boot.pod :as pod]
+    [clojure.java.io :as io]
     [clojure.string :as str]
-    [boot.core :as core])
+    [crisptrutski.boot-error.core :as err])
   (:import
     [java.io File]
     [java.util.regex Pattern]
@@ -36,14 +38,6 @@
     (instance? Pattern ns) ns
     :else (re-pattern (str "\\A" (name ns) "\\z"))))
 
-(defn ns->cljs-path
-  "Determine filename from namespace"
-  [ns]
-  (-> (str ns)
-      (str/replace "-" "_")
-      (str/replace "." "/")
-      (str ".cljs")))
-
 (defn ^Path filename->path
   "A sane constructor `java.nio.file.Path` instances."
   [filename]
@@ -74,21 +68,58 @@
        (filter src-file?)
        (map #(file->ns (relativize dir %)))))
 
-(defn refine-namespaces [fs namespaces]
+(defn refine-namespaces [fs namespaces exclusions]
   (if (and (seq namespaces) (every? ns-literal? namespaces))
     namespaces
-    (let [regexes (map ns-regex namespaces)]
+    (let [regexes (map ns-regex namespaces)
+          exclude (map ns-regex exclusions)]
       (->> (core/input-dirs fs)
            (mapv (memfn getPath))
            (into #{} (mapcat ns-from-dir))
-           (filter (fn [ns] (or (and (empty? regexes)
-                                     (re-find #"-test\z" (str ns)))
-                                (some #(re-find % (str ns)) regexes))))))))
+           (filter (fn [ns]
+                     (let [s (str ns)]
+                       (and (or (and (empty? regexes) (re-find #"-test\z" s))
+                                (some #(re-find % s) regexes))
+                            (not (some #(re-find % s) exclude))))))))))
 
 (defn cljs-files
   "Given a fileset, return a list of all the ClojureScript source files."
   [fileset]
   (->> fileset
        core/input-files
-       (core/by-ext [".cljs" ".cljc"])
+       (core/by-ext [".cljs" ".cljc" ".cljs.edn"])
        (sort-by :path)))
+
+(defn find-path
+  "Fine most recent filesystem file in fileset with given logical path."
+  [fileset filename]
+  (some->>
+    (core/output-files fileset)
+    (filter (comp #{filename} :path))
+    (sort-by :time)
+    last ^File core/tmp-file .getPath))
+
+(defn build-cljs-opts
+  "Augment cljs-opts with boot determined values"
+  [base output-to output-dir]
+  (merge {:asset-path (.getName (io/file output-dir))}
+         base
+         {:output-to output-to :output-dir output-dir}))
+
+(defn combine-cljs-opts
+  "Augment cljs-opts with values determined by other arguments"
+  [cljs-opts optimizations js-env]
+  (merge {:optimizations optimizations}
+         (when (= :node js-env) {:target :nodejs, :hashbang false})
+         cljs-opts))
+
+(defn wrap-fs-rolback
+  "Roll back any fileset changes from handler, but preserve error metadata"
+  [wrapped-handler]
+  (fn [handler]
+    (fn [fileset]
+      ((wrapped-handler
+         (fn [fs]
+           (core/commit! fileset)
+           (handler (err/track-errors fileset (err/get-errors fs)))))
+        fileset))))
