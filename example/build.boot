@@ -52,5 +52,6 @@
 (deftask auto-test []
   (comp (testing)
         (watch)
+        (speak)
         (test-cljs)
         (test)))
