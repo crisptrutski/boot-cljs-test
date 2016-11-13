@@ -5,16 +5,16 @@
     [clojure.java.io :as io]
     [clojure.string :as str]
     [crisptrutski.boot-cljs-test.utils :as u]
-   [crisptrutski.boot-error.core :as err])
+    [crisptrutski.boot-error.core :as err])
   (:import
-   [java.io File]))
+    [java.io File]))
 
 (def deps
   {:adzerk/boot-cljs "1.7.170-3"
-   :doo              "0.1.7-SNAPSHOT"})
+   :doo "0.1.7-SNAPSHOT"})
 
 (def default-js-env :phantom)
-(def default-ids    ["cljs_test/suite"])
+(def default-ids ["cljs_test/suite"])
 
 ;; core
 
@@ -33,10 +33,12 @@
     (core/merge-env! :dependencies (scope-as "test" deps))))
 
 (defn validate-cljs-opts! [js-env cljs-opts]
-  ((u/r doo.core/assert-compiler-opts) js-env (assoc cljs-opts
-                                     :output-to "placeholder"
-                                     :output-dir "placeholder"
-                                                :assert-path "placeholder")))
+  ((u/r doo.core/assert-compiler-opts)
+    js-env
+    (assoc cljs-opts
+      :output-to "placeholder"
+      :output-dir "placeholder"
+      :assert-path "placeholder")))
 
 (defn- gen-suite-ns
   "Generate source-code for default test suite."
@@ -45,26 +47,24 @@
         run-exp `(~'doo-tests ~@(map u/normalize-sym namespaces))]
     (->> [ns-spec '(enable-console-print!) run-exp]
          (map #(with-out-str (clojure.pprint/pprint %)))
-         (str/join "\n" ))))
+         (str/join "\n"))))
 
 (defn add-suite-ns!
   "Add test suite bootstrap script to fileset."
   [fileset tmp-main id namespaces verbosity]
-  (let [relative   #(u/relativize (.getPath tmp-main) (.getPath %))
-        out-main   (str id ".cljs")
-        src-file   (doto (io/file tmp-main out-main) io/make-parents)
-        edn-file   (io/file tmp-main (str out-main ".edn"))
-        src-path   (relative src-file)
-        edn-path   (relative edn-file)
-        exists?    (into #{} (map core/tmp-path) (u/cljs-files fileset))
-        suite?     (or (exists? src-path) (exists? (str/replace src-path ".cljs" ".cljc")))
-        edn?       (exists? edn-path)
-        edn        (when edn? (read-string (slurp (core/tmp-file (core/tmp-get fileset edn-path)))))
-        ;; TODO: better would be to use transitive requires, once we have the dep graph
-        ;; subset namespaces to those directly required by .cljs.edn
+  (let [relative #(u/relativize (.getPath tmp-main) (.getPath %))
+        out-main (str id ".cljs")
+        src-file (doto (io/file tmp-main out-main) io/make-parents)
+        edn-file (io/file tmp-main (str out-main ".edn"))
+        src-path (relative src-file)
+        edn-path (relative edn-file)
+        exists? (into #{} (map core/tmp-path) (u/cljs-files fileset))
+        suite? (or (exists? src-path) (exists? (str/replace src-path ".cljs" ".cljc")))
+        edn? (exists? edn-path)
+        edn (when edn? (read-string (slurp (core/tmp-file (core/tmp-get fileset edn-path)))))
         namespaces (if edn (filter (set (:require edn)) namespaces) namespaces)
-        suite-ns   (u/file->ns out-main)
-        info       (if (pos? verbosity) info no-op)]
+        suite-ns (u/file->ns out-main)
+        info (if (pos? verbosity) info no-op)]
     (if suite?
       (info "Using %s...\n" src-path)
       (do
@@ -91,10 +91,10 @@
                                Regexes are also supported.
                                Strings will be coerced to entire regexes."
    e exclusions NS ^:! #{str} "Namespaces or namesaces patterns to exclude."
-   v verbosity VAL  int       "Log level"
-   i id         VAL str       "TODO: WRITE ME"]
+   v verbosity  VAL    int    "Log level, from 1 to 3"
+   i id VAL str "TODO: WRITE ME"]
   (let [tmp-main (core/tmp-dir!)
-        verbosity (or verbosity @boot.util/*verbosity*)]
+        verbosity (or verbosity @boot.util/*verbosity* 1)]
     (core/with-pre-wrap fileset
       (let [namespaces (u/refine-namespaces fileset namespaces exclusions)]
         (core/empty-dir! tmp-main)
@@ -133,12 +133,12 @@
 
 (deftask run-cljs-tests
   "Execute test reporter on compiled tests"
-  [i ids        IDS  [str] ""
-   j js-env     VAL  kw     "Environment to execute within, eg. slimer, phantom, ..."
-   c cljs-opts  OPTS edn    "Options to pass to the Clojurescript compiler."
-   v verbosity  VAL  int    "Log level"
-   d doo-opts   VAL  code    "Options for doo"
-   x exit?           bool   "Exit process with runner's exit code on completion."]
+  [i ids       IDS [str] ""
+   j js-env    VAL kw    "Environment to execute within, eg. slimer, phantom, ..."
+   c cljs-opts OPTS edn  "Options to pass to the Clojurescript compiler."
+   v verbosity VAL int   "Log level"
+   d doo-opts  VAL code  "Options for doo"
+   x exit?         bool  "Exit process with runner's exit code on completion."]
   (ensure-deps! [:doo])
   (let [js-env (or js-env default-js-env)
         ids (if (seq ids) ids default-ids)
@@ -182,21 +182,21 @@
 
    The --namespaces option specifies the namespaces to test. The default is to
    run tests in all namespaces found in the project."
-  [j js-env        VAL   kw      "Environment to execute within, eg. slimer, phantom, ..."
+  [j js-env        VAL    kw     "Environment to execute within, eg. slimer, phantom, ..."
    n namespaces    NS ^:! #{str} "Namepsaces or namespace patterns to run.
                                   If omitted uses all namespaces ending in \"-test\"."
    e exclusions    NS ^:! #{str} "Namespaces or namesaces patterns to exclude."
-   O optimizations LEVEL kw      "The optimization level, defaults to :none."
-   i ids           IDS   [str]  ""
-   o out-file      VAL   str     "DEPRECATED Output file for test script."
-   c cljs-opts     OPTS  edn     "Options to pass to the Clojurescript compiler."
-   u update-fs?          bool    "Enable fileset changes to be passed on to next task.
+   O optimizations LEVEL  kw     "The optimization level, defaults to :none."
+   i ids           IDS    [str]  ""
+   o out-file      VAL    str    "DEPRECATED Output file for test script."
+   c cljs-opts     OPTS   edn    "Options to pass to the Clojurescript compiler."
+   u update-fs?           bool   "Enable fileset changes to be passed on to next task.
                                   By default hides all effects for suite isolation."
-   v verbosity     VAL   int     "Verbosity level"
-   x exit?               bool    "Exit process with runner's exit code on completion."]
+   v verbosity     VAL    int    "Verbosity level"
+   x exit? bool "Exit process with runner's exit code on completion."]
   (ensure-deps! [:adzerk/boot-cljs])
-    (-test-cljs
-      js-env namespaces exclusions optimizations ids out-file cljs-opts verbosity update-fs? exit?))
+  (-test-cljs
+    js-env namespaces exclusions optimizations ids out-file cljs-opts verbosity update-fs? exit?))
 
 (deftask exit!
   "Exit with the appropriate error code"
