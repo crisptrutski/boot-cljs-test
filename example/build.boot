@@ -16,7 +16,7 @@
   '[adzerk.boot-reload          :refer [reload]]
   '[adzerk.boot-test            :refer :all]
   '[pandeiro.boot-http          :refer [serve]]
-  '[crisptrutski.boot-cljs-test :refer [test-cljs exit!]])
+  '[crisptrutski.boot-cljs-test :refer [test-cljs report-errors!]])
 
 (deftask deps [] identity)
 
@@ -41,17 +41,18 @@
 (deftask test-some []
   (comp (testing)
         (test-cljs :namespaces [#".*\.lib.*" "wutc"])
-        (exit!)))
+        (report-errors!)))
 
 (deftask test-all []
          (comp (testing)
                (test-cljs)
                (test)
-               (exit!)))
+               (report-errors!)))
 
 (deftask auto-test []
   (comp (testing)
         (watch)
         (speak)
         (test-cljs)
-        (test)))
+        (test)
+        (report-errors!)))
