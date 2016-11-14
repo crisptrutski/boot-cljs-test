@@ -225,5 +225,5 @@
    u update-fs?           bool   "Enable fileset changes to be passed on to next task.
                                   By default hides all effects for suite isolation."
    v verbosity     VAL    int    "Verbosity level"
-   x exit? bool "Exit process with runner's exit code on completion."]
+   x exit?                bool   "Throw exception on error or inability to run tests."]
   (-test-cljs js-env namespaces exclusions optimizations ids out-file cljs-opts verbosity update-fs? exit?))
