@@ -53,6 +53,6 @@
   (comp (testing)
         (watch)
         (speak)
-        (test-cljs)
+        (test-cljs :js-env :chrome)
         (test)
         (report-errors!)))

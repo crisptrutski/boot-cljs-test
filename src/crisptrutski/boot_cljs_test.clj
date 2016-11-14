@@ -14,7 +14,7 @@
    :doo "0.1.7"})
 
 (def default-js-env :phantom)
-(def default-ids ["cljs_test/generated_test_suite"])
+(def default-ids ["generated_test_suite"])
 
 ;; core
 
@@ -104,13 +104,19 @@
 (defn- info? [verbosity & args]
   (when (pos? verbosity) (apply info args)))
 
-(defn run-cljs-tests! [ids js-env cljs-opts v exit? doo-opts verbosity fileset]
+(defn add-node-modules! [fileset]
+  (if (.exists (io/file "node_modules"))
+    (core/commit! (core/add-resource fileset (io/file ".") :include #{#"^node_modules/"}))
+    fileset))
+
+(defn run-tests! [ids js-env cljs-opts v exit? doo-opts doo-installed? verbosity fileset]
   (err/with-errors!
     (info? v "Running cljs tests...\n")
     ((u/r doo.core/print-envs) js-env)
     (doseq [id ids]
       (when (> (count ids) 1) (info? v "• %s\n" id))
       (let [filename (str id ".js")
+            karma? ((u/r doo.karma/env?) js-env)
             output-to (u/find-path fileset filename)
             output-dir (str/replace output-to #"\.js\z" ".out")
             cljs-opts (u/build-cljs-opts cljs-opts output-to output-dir)
@@ -123,13 +129,19 @@
               (swap!  core/*warnings* inc)
               (err (format "Test script not found: %s" filename)))
           (let [dir (.getParentFile (File. ^String output-to))
+                doo-opts (merge
+                           doo-opts
+                           {:exec-dir dir
+                            :verbose (>= verbosity 1)
+                            :debug (>= verbosity 2)})
+                _ (add-node-modules! fileset)
+                _ (when karma?
+                    (when-not @doo-installed?
+                      (reset! doo-installed? true)
+                      ((u/r doo.core/install!) [js-env] cljs-opts doo-opts)))
+                _ (println (:out (clojure.java.shell/sh "ls" (.getPath dir))))
                 {:keys [exit] :as result}
-                ((u/r doo.core/run-script) js-env cljs-opts
-                  (merge
-                    doo-opts
-                    {:exec-dir dir
-                     :verbose (>= verbosity 1)
-                     :debug (>= verbosity 2)}))]
+                ((u/r doo.core/run-script) js-env cljs-opts doo-opts)]
             (when (pos? exit)
               (err result))))))
     fileset))
@@ -145,11 +157,12 @@
   (ensure-deps! [:doo])
   (let [js-env (or js-env default-js-env)
         ids (if (seq ids) ids default-ids)
-        verbosity (or verbosity @boot.util/*verbosity*)]
+        verbosity (or verbosity @boot.util/*verbosity*)
+        doo-installed? (atom false)]
     (validate-cljs-opts! js-env cljs-opts)
     (fn [next-task]
       (fn [fileset]
-        (next-task (run-cljs-tests! ids js-env cljs-opts verbosity exit? doo-opts verbosity fileset))))))
+        (next-task (run-tests! ids js-env cljs-opts verbosity exit? doo-opts doo-installed? verbosity fileset))))))
 
 (deftask report-errors!
   []
