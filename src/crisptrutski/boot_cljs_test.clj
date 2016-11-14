@@ -140,7 +140,7 @@
                     (when-not @doo-installed?
                       (reset! doo-installed? true)
                       ((u/r doo.core/install!) [js-env] cljs-opts doo-opts)
-                      (Thread/sleep 100)))]
+                      (Thread/sleep 1000)))]
             (if karma?
               ((u/r doo.core/karma-run!) doo-opts)
               (let [{:keys [exit] :as result}
