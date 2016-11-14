@@ -2,19 +2,19 @@
 
 ## 0.3.0
 
-- Replace :out-file with boot-cljs id convention
-- Support using :require to determine namespaces under test.
+x Replace :out-file with boot-cljs id convention
 - Support multiple runs via multiple IDs
-- Drop :suite-ns parameter, use convention or edn file
+x Drop :suite-ns parameter, use convention or edn file
 x Support early vs late exit (another artifact of multiple IDs)
+x Pass all compiler options on to doo, including a derived :output-dir
+x Support :exclusions to filter namespaces
+x Support :debug option and share this with doo
+x Remove global state for fileset revert
+x Remove global state for deferred errors
+x Bump default injected dependencies
+x Support verbosity control with boot -v syntax.
+x Support using :require to determine namespaces under test.
 - Support runners installed in node_modules
-- Pass all compiler options on to doo, including a derived :output-dir
-- Support :exclusions to filter namespaces
-- Support :debug option and share this with doo
-- Remove global state for fileset revert
-- Remove global state for deferred errors
-- Bump default injected dependencies | list actual version
-- Support verbosity control with boot -v syntax.
 
 ## 0.2.2
 
