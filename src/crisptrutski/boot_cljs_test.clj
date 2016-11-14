@@ -65,7 +65,7 @@
         edn (when edn? (read-string (slurp (core/tmp-file (core/tmp-get fileset edn-path)))))
         namespaces (if edn (filter (set (:require edn)) namespaces) namespaces)
         suite-ns (u/file->ns out-main)
-        info (if (pos? verbosity) info no-op)]
+        info (if (> verbosity 1) info no-op)]
     (if suite?
       (info "Using %s...\n" src-path)
       (do
