@@ -14,7 +14,7 @@
    :doo "0.1.7"})
 
 (def default-js-env :phantom)
-(def default-ids ["generated_test_suite"])
+(def default-ids ["cljs_test/generated_test_suite"])
 
 ;; core
 
@@ -104,10 +104,11 @@
 (defn- info? [verbosity & args]
   (when (pos? verbosity) (apply info args)))
 
-(defn add-node-modules! [fileset]
-  (if (.exists (io/file "node_modules"))
-    (core/commit! (core/add-resource fileset (io/file ".") :include #{#"^node_modules/"}))
-    fileset))
+(defn add-node-modules! [dir]
+  (when (.exists (io/file "node_modules"))
+    (doseq [f (file-seq (io/file "node_modules"))
+            :when (.isFile f)]
+      (io/copy f (doto (io/file dir f) (io/make-parents))))))
 
 (defn run-tests! [ids js-env cljs-opts v exit? doo-opts doo-installed? verbosity fileset]
   (err/with-errors!
@@ -134,16 +135,18 @@
                            {:exec-dir dir
                             :verbose (>= verbosity 1)
                             :debug (>= verbosity 2)})
-                _ (add-node-modules! fileset)
+                _ (add-node-modules! dir)
                 _ (when karma?
                     (when-not @doo-installed?
                       (reset! doo-installed? true)
-                      ((u/r doo.core/install!) [js-env] cljs-opts doo-opts)))
-                _ (println (:out (clojure.java.shell/sh "ls" (.getPath dir))))
-                {:keys [exit] :as result}
-                ((u/r doo.core/run-script) js-env cljs-opts doo-opts)]
-            (when (pos? exit)
-              (err result))))))
+                      ((u/r doo.core/install!) [js-env] cljs-opts doo-opts)
+                      (Thread/sleep 100)))]
+            (if karma?
+              ((u/r doo.core/karma-run!) doo-opts)
+              (let [{:keys [exit] :as result}
+                    ((u/r doo.core/run-script) js-env cljs-opts doo-opts)]
+                (when (pos? exit)
+                  (err result))))))))
     fileset))
 
 (deftask run-tests
@@ -174,7 +177,7 @@
 
 (defn -test-cljs
   [js-env namespaces exclusions optimizations ids out-file cljs-opts verbosity update-fs? exit?]
-  (ensure-deps! [:adzerk/boot-cljs])
+  (ensure-deps! [:adzerk/boot-cljs :doo])
   (when out-file
     (warn "[boot-cljs] :out-file is deprecated, please use :ids\n")
     (swap! core/*warnings* inc))
@@ -183,7 +186,9 @@
         optimizations (or optimizations :none)
         js-env (or js-env default-js-env)
         cljs-opts (u/combine-cljs-opts cljs-opts optimizations js-env)
-        wrapper (if update-fs? identity u/wrap-fs-rollback)]
+        wrapper (if (or update-fs? ((u/r doo.karma/env?) js-env))
+                  identity
+                  u/wrap-fs-rollback)]
     (validate-cljs-opts! js-env cljs-opts)
     (wrapper
       (comp (reduce
