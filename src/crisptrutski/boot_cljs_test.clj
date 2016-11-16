@@ -116,7 +116,7 @@
     ((u/r doo.core/print-envs) js-env)
     (doseq [id ids]
       (when (> (count ids) 1) (info? v "• %s\n" id))
-      (let [filename (str id ".js")
+      (let [filename (str/replace (str id ".js") "/" File/separator)
             karma? ((u/r doo.karma/env?) js-env)
             output-to (u/find-path fileset filename)
             output-dir (str/replace output-to #"\.js\z" ".out")
