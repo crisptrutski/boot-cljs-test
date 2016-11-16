@@ -120,11 +120,12 @@
             karma? ((u/r doo.karma/env?) js-env)
             output-to (u/find-path fileset filename)
             output-dir (when output-to (str/replace output-to #"\.js\z" ".out"))
-            cljs-opts (u/build-cljs-opts cljs-opts output-to output-dir)
+            cljs-opts (when output-to (u/build-cljs-opts cljs-opts output-to output-dir))
             err (if exit?
                   #(throw (RuntimeException. ^String (:out % %)))
                   #(err/track-error! (if (map? %) % {:exit 1 :out "" :err %})))]
-        ((u/r doo.core/assert-compiler-opts) js-env cljs-opts)
+        (when output-to
+          ((u/r doo.core/assert-compiler-opts) js-env cljs-opts))
         (if-not output-to
           (do (warn "Test script not found: %s\n" filename)
               (swap!  core/*warnings* inc)
