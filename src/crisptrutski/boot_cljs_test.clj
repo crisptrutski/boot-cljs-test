@@ -119,7 +119,7 @@
       (let [filename (str/replace (str id ".js") "/" File/separator)
             karma? ((u/r doo.karma/env?) js-env)
             output-to (u/find-path fileset filename)
-            output-dir (str/replace output-to #"\.js\z" ".out")
+            output-dir (when output-to (str/replace output-to #"\.js\z" ".out"))
             cljs-opts (u/build-cljs-opts cljs-opts output-to output-dir)
             err (if exit?
                   #(throw (RuntimeException. ^String (:out % %)))
