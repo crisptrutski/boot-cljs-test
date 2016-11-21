@@ -116,7 +116,7 @@
     ((u/r doo.core/print-envs) js-env)
     (doseq [id ids]
       (when (> (count ids) 1) (info? v "• %s\n" id))
-      (let [filename (str/replace (str id ".js") "/" File/separator)
+      (let [filename (str id ".js")
             karma? ((u/r doo.karma/env?) js-env)
             output-to (u/find-path fileset filename)
             output-dir (when output-to (str/replace output-to #"\.js\z" ".out"))
@@ -128,7 +128,7 @@
           ((u/r doo.core/assert-compiler-opts) js-env cljs-opts))
         (if-not output-to
           (do (warn "Test script not found: %s\n" filename)
-              (swap!  core/*warnings* inc)
+              (swap! core/*warnings* inc)
               (err (format "Test script not found: %s" filename)))
           (let [dir (.getParentFile (File. ^String output-to))
                 doo-opts (merge
@@ -184,6 +184,7 @@
     (swap! core/*warnings* inc))
   (let [verbosity (or verbosity @boot.util/*verbosity*)
         ids (if (seq ids) ids (if out-file (str/replace out-file #"\.js\z" "") default-ids))
+        ids (map #(str/replace % "/" File/separator) ids)
         optimizations (or optimizations :none)
         js-env (or js-env default-js-env)
         cljs-opts (u/combine-cljs-opts cljs-opts optimizations js-env)
