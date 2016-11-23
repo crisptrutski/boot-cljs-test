@@ -33,7 +33,9 @@ Ran 1337 tests containing 9001 assertions.
 
 The task takes care of generating tedious runner namespaces for you!
 
-You can also use our own runner namespaces - they will be detected when building an `id` that corresponds to that namespace.
+You can also use our own runner namespaces - they will be picked up when by a matching `id`:
+
+eg. `boot testing test-cljs --ids="my/awesome/test_runner"`
 
 The heavy lifting of running and reporting errors is handled by the excellent [Doo](https://github.com/bensu/doo)
 
