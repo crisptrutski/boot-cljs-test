@@ -15,7 +15,6 @@
 (bootlaces! +version+)
 
 (task-options!
-push {:ensure-clean false :ensure-branch "0.3.0"}
  pom  {:project     'crisptrutski/boot-cljs-test
        :version     +version+
        :description "Boot task to run ClojureScript tests."
