@@ -66,18 +66,18 @@
 (deftask test-plumbing []
   (comp (testing)
         ;; warn, no snapshot yet
-        (cljs-test/wrap-fs-restore)
-        (cljs-test/wrap-fs-snapshot)
+        (cljs-test/fs-restore)
+        (cljs-test/fs-snapshot)
         (cljs-test/prep-cljs-tests :id "beep/boop")
         (cljs-test/prep-cljs-tests :id "boop/beep")
         (cljs :ids #{"beep/boop"})
         (cljs-test/run-cljs-tests :ids ["beep/boop"] :verbosity 2)
         (prn-errors "tracked")
-        (cljs-test/wrap-fs-restore)
+        (cljs-test/fs-restore)
         (prn-errors "cleared")
         (cljs :ids #{"boop/beep"})
         (cljs-test/run-cljs-tests :ids ["boop/beep"] :verbosity 1)
-        (cljs-test/wrap-fs-restore :keep-errors? true)
+        (cljs-test/fs-restore :keep-errors? true)
         (prn-errors "retained")
         ;; fails, compiled suite rolled back
         (cljs-test/run-cljs-tests :ids ["beep/boop"] :verbosity 2)))

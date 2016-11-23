@@ -180,12 +180,12 @@
         (throw (RuntimeException. "Some tests failed or errored")))
       (handler (err/clear-errors fs)))))
 
-(deftask wrap-fs-snapshot
+(deftask fs-snapshot
   "Embed snapshot of fileset within itself"
   []
   (fn [handler] (fn [fs] (handler (vary-meta fs assoc ::snapshot fs)))))
 
-(deftask wrap-fs-restore
+(deftask fs-restore
   "Rollback to embedded snapshot, if it exists"
   [k keep-errors? bool "Retain memory of test errors after rollback."]
   (fn [handler]
@@ -240,7 +240,7 @@
         update-fs? (or update-fs? ((u/r doo.karma/env?) js-env))]
     (validate-cljs-opts! js-env cljs-opts)
     (multi-comp
-      (when update-fs? (wrap-fs-snapshot))
+      (when update-fs? (fs-snapshot))
       (for [id ids]
         (prep-cljs-tests
           :id id
@@ -257,4 +257,4 @@
         :exit? exit?
         :verbosity verbosity)
       (when exit? (report-errors!))
-      (when update-fs? (wrap-fs-restore :keep-errors? keep-errors?)))))
+      (when update-fs? (fs-restore :keep-errors? keep-errors?)))))
