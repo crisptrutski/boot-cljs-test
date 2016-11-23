@@ -59,7 +59,7 @@ Supported task options:
   -v, --verbosity VAL        Log level, from 1 to 3.
 ```
 
-### More advanced usage:
+## Getting fancy
 
 To steal some Git terminology, there `test-cljs` task is the "porcelin" high level API.
 
