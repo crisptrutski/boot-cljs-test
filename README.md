@@ -25,7 +25,7 @@ Run `boot testing test-cljs`
 
 ```
 ;; Testing your.awesome.foo-test
-;; Testing your.spectauclar.bar-test
+;; Testing your.spectacular.bar-test
 
 Ran 1337 tests containing 9001 assertions.
 0 failures, 0 errors
@@ -33,7 +33,7 @@ Ran 1337 tests containing 9001 assertions.
 
 The task takes care of generating tedious runner namespaces for you!
 
-You can also use our own runner namespaces - they will be picked up when by a matching `id`:
+You can also use our own runner namespaces - they will be picked up when by a matching `id`.
 
 eg. `boot testing test-cljs --ids="my/awesome/test_runner"`
 
