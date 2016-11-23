@@ -61,9 +61,9 @@ Supported task options:
 
 ## Getting fancy
 
-To steal some Git terminology, there `test-cljs` task is the "porcelin" high level API.
+To steal the Git terminology of "plumbing" vs "porcelain", the `test-cljs` task is the high level porcelain API.
 
-There is also a lower level "plumbing" API which is used to implement it:
+The plumbing is also stable and open for business:
 
  1. `prep-cljs-tests` - generates boot-cljs edn files and test runner cljs files (if necessary)
  2. `run-cljs-tests` - executes a test runner
@@ -72,9 +72,9 @@ There is also a lower level "plumbing" API which is used to implement it:
  5. `fs-snapshot` - passes current snapshot state down pipeline as metadata
  6. `fs-restore` - rolls back to the snapshot passed down as metadata
 
-These could also be referred to as the "simple" vs "easy" APIs ;)
+These could also be referred to as the "simple" and "easy" APIs :smile:
 
-The `test-cljs` task roughly speaking just composes these tasks in the obvious way:
+The `test-cljs` task (roughly speaking) composes these tasks in the obvious way:
 
 `fs-snapshot -> prep-cljs-tests -> run-cljs-tests -> report-errors -> fs-restore`
 
