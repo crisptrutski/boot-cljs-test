@@ -98,7 +98,7 @@
         (add-suite-ns! fileset tmp-main id namespaces verbosity)))))
 
 (defn- info? [verbosity & args]
-  (when (pos? verbosity) (apply info args)))
+  (when (> verbosity 1) (apply info args)))
 
 (defn add-node-modules! [dir]
   (when (.exists (io/file "node_modules"))
@@ -128,8 +128,8 @@
               (err (format "Test script not found: %s" filename)))
           (let [dir (.getParentFile (File. ^String output-to))
                 doo-opts (merge
-                           {:verbose (>= verbosity 1)
-                            :debug (>= verbosity 2)}
+                           {:verbose (> verbosity 1)
+                            :debug (> verbosity 2)}
                            doo-opts
                            {:exec-dir dir})
                 _ (add-node-modules! dir)

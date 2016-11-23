@@ -2,19 +2,22 @@
 
 ## 0.3.0
 
-x Replace :out-file with boot-cljs id convention
+- Removed: :suite-ns replaced with `boot-cljs` compatible ids.
+- Deprecated: :out-file to be determined by `id`
 - Support multiple runs via multiple IDs
-x Drop :suite-ns parameter, use convention or edn file
-x Support early vs late exit (another artifact of multiple IDs)
-x Pass all compiler options on to doo, including a derived :output-dir
-x Support :exclusions to filter namespaces
-x Support :debug option and share this with doo
-x Remove global state for fileset revert
-x Remove global state for deferred errors
-x Bump default injected dependencies
-x Support verbosity control with boot -v syntax.
-x Support using :require to determine namespaces under test.
+- Support early vs late exit
+- Support composition with notify/speak task
+- Support custom doo options
+- Support :exclusions to filter namespaces
+- Support verbosity control with boot -v syntax and share this with doo.
+- Support using :require to determine namespaces under test.
 - Support runners installed in node_modules
+- Support Karma
+- Pass compiler options on to doo, including derived :output-dir
+- More powerful plumbing API
+- Remove global state for fileset revert
+- Remove global state for deferred errors
+- Bump default injected dependencies
 
 ## 0.2.2
 
