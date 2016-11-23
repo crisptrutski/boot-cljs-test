@@ -1,34 +1,81 @@
 # boot-cljs-test
 
-Boot task to run ClojureScript tests.
+Boot task to make ClojureScript testing quick, easy, and consistent with testing Clojure.
 
 [![Circle
-CI](https://circleci.com/gh/crisptrutski/boot-cljs-test.svg?style=svg)](https://circleci.com/gh/crisptrutski/boot-cljs-test)
+CI](https://circleci.com/gh/crisptrutski/boot-cljs-test.svg?style=svg)](https://circleci.com/gh/crisptrutski/boot-cljs-test) [![Clojars Project](https://img.shields.io/clojars/v/crisptrutski/boot-cljs-test.svg)](https://clojars.org/crisptrutski/boot-cljs-test)
 
 [](dependency)
 ```clojure
-[crisptrutski/boot-cljs-test "0.2.2"] ;; latest release
+[crisptrutski/boot-cljs-test "0.3.0-SNAPSHOT"] ;; latest release
 ```
 [](/dependency)
 
-## Usage
+## Getting started
 
-### The simple way:
+Add to `build.boot` and make sure the tests are added to the classpath.
 
-1. Add top-level require for `'[crisptrutski.boot-cljs-test :refer [test-cljs]]` to `build.boot`.
-2. Set `(task-options! test-cljs {:js-env :phantom})`, substituting test runner of your choice.
-3. Create a task to add tests to class path (ie. `(set-env! :source-paths #(conj % "test"))`) and run `test-cljs`.
+```
+(set-env! :dependencies '[[crisptrutski/boot-cljs-test "0.3.0-SNAPSHOT" :scope "test"]])
+(require '[crisptrutski.boot-cljs-test :refer [test-cljs]])
+(deftask testing [] (merge-env! :source-paths #{"test"}) identity)
+```
+
+Run `boot testing test-cljs`
+
+```
+;; Testing your.awesome.foo-test
+;; Testing your.spectacular.bar-test
+
+Ran 1337 tests containing 9001 assertions.
+0 failures, 0 errors
+```
+
+The task takes care of generating tedious runner namespaces for you!
+
+You can also use our own runner namespaces - they will be picked up when by a matching `id`.
+
+eg. `boot testing test-cljs --ids="my/awesome/test_runner"`
+
+The heavy lifting of running and reporting errors is handled by the excellent [Doo](https://github.com/bensu/doo)
+
+There are a lot of options and conveniences, some of which are demo'd in [this example project](/example)
+
+Supported task options:
+
+```
+  -h, --help                 Print this help info.
+  -j, --js-env VAL           Environment to execute within, eg. slimer, phantom, ...
+  -n, --namespaces NS        Namespaces to run, supports regexes. If omitted tries "*-test" then "*".
+  -e, --exclusions NS        Namespaces to exclude, supports regexes.
+  -i, --ids IDS              Test runner ids. Generates each config if not found.
+  -c, --cljs-opts OPTS       Options to pass on to CLJS compiler.
+  -O, --optimizations LEVEL  Sets optimization level for CLJS compiler, defaults to :none.
+  -d, --doo-opts VAL         Sets options to pass on to Doo.
+  -u, --update-fs?           Skip fileset rollback before running next task.
+                             By default fileset is rolled back to support additional cljs suites, clean JARs, etc.
+  -x, --exit?                Throw exception on error or inability to run tests.
+  -k, --keep-errors?         Retain memory of test errors after rollback.
+  -v, --verbosity VAL        Log level, from 1 to 3.
+```
 
 ### More advanced usage:
 
-This library provides two lower level tasks, `prep-cljs-tests` and `run-cljs-tests`, which are designed to run before and after Clojurescript compilation (eg. by `cljs` task in `boot-cljs`).
+To steal some Git terminology, there `test-cljs` task is the "porcelin" high level API.
 
-The `test-cljs` task merely composes those tasks with the `cljs` task, with sensible defaults. That includes ignoring any `*.cljs.edn` files in your fileset,
-to ensure tests and generated suite file are included in the compile.
+There is also a lower level "plumbing" API which is used to implement it:
 
-Examples of workflows achievable by composing these smaller tasks manually:
+ 1. `prep-cljs-tests` - generates boot-cljs edn files and test runner cljs files (if necessary)
+ 2. `run-cljs-tests` - executes a test runner
+ 3. `report-errors!` - throws if any errors were reported in upstream tests
+ 4. `clear-errors` - clears any error reports from upstream tests
+ 5. `fs-snapshot` - passes current snapshot state down pipeline as metadata
+ 6. `fs-restore` - rolls back to the snapshot passed down as metadata
 
-1. configuring requires and entry point for output file in a `.cljs.edn` file
-2. building multiple test suites in a single pass
-3. building test suites and dev / production / other outputs in same `cljs` pass
-4. running the same test in multiple environments (eg. v8 and spidermonkey, or headless and browser)
+These could also be referred to as the "simple" vs "easy" APIs ;)
+
+The `test-cljs` task roughly speaking just composes these tasks in the obvious way:
+
+`fs-snapshot -> prep-cljs-tests -> run-cljs-tests -> report-errors -> fs-restore`
+
+If you need to support more exotic workflows, or carve out efficiency - just use these tasks directly!

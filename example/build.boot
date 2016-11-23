@@ -1,21 +1,20 @@
 (set-env!
-  :source-paths    #{"src"}
-  :resource-paths  #{"resources"}
-  :dependencies   '[[adzerk/boot-cljs            "1.7.170-3"      :scope "test"]
-                    [adzerk/boot-cljs-repl       "0.3.0"          :scope "test"]
-                    [adzerk/boot-reload          "0.4.2"          :scope "test"]
-                    [pandeiro/boot-http          "0.7.0"          :scope "test"]
-                    [crisptrutski/boot-cljs-test "0.2.2-SNAPSHOT" :scope "test"]
-                    [org.clojure/clojurescript   "1.7.189"]
-                    [adzerk/boot-test            "1.0.6"]])
+  :source-paths #{"src"}
+  :resource-paths #{"resources"}
+  :dependencies
+  '[[adzerk/boot-cljs            "1.7.170-3"      :scope "test"]
+    [adzerk/boot-cljs-repl       "0.3.0"          :scope "test"]
+    [pandeiro/boot-http          "0.7.0"          :scope "test"]
+    [crisptrutski/boot-cljs-test "0.3.0-SNAPSHOT" :scope "test"]
+    [org.clojure/clojurescript   "1.7.189"]
+    [adzerk/boot-test            "1.0.6"]])
 
 (require
   '[adzerk.boot-cljs            :refer [cljs]]
   '[adzerk.boot-cljs-repl       :refer [cljs-repl start-repl]]
-  '[adzerk.boot-reload          :refer [reload]]
   '[adzerk.boot-test            :refer :all]
   '[pandeiro.boot-http          :refer [serve]]
-  '[crisptrutski.boot-cljs-test :refer [test-cljs exit!]])
+  '[crisptrutski.boot-cljs-test :refer [test-cljs report-errors!] :as cljs-test])
 
 (deftask deps [] identity)
 
@@ -23,24 +22,62 @@
   (merge-env! :source-paths #{"test"})
   identity)
 
-(deftask test-suite []
+(deftask test-id []
   (comp (testing)
-        (test-cljs :exit? true
-                   :suite-ns 'boot-cljs-test-example.suite)))
+        (test-cljs
+          :exit? true
+          :ids ["boot_cljs_test_example/suite"])))
+
+(deftask test-ids []
+  (comp (testing)
+        (test-cljs
+          :ids ["boot_cljs_test_example/unit"
+                "boot_cljs_test_example/integration_suite"])))
+
+(deftask test-exclusions []
+  (comp (testing)
+        (test-cljs :exclusions #{#"lib"})))
+
+(deftask test-namespaces []
+  (comp (testing)
+        (test-cljs
+          :namespaces [#".*\.lib.*" "wutc"]
+          :exit? true)))
 
 (deftask test-all []
   (comp (testing)
-        (test-cljs)
+        (test-cljs :keep-errors? true)
         (test)
-        (exit!)))
+        (report-errors!)))
 
-(deftask test-some []
-  (comp (testing)
-        (test-cljs :namespaces [#".*\.lib.*"])
-        (exit!)))
-
-(deftask auto-test []
+(deftask test-watch-karma []
   (comp (testing)
         (watch)
-        (test-cljs)
+        (speak)
+        (test-cljs :js-env :chrome)
         (test)))
+
+(defn prn-errors [label]
+  (fn [handler]
+    (fn [fs]
+     (prn label "errors" (crisptrutski.boot-error.core/get-errors fs))
+     (handler fs))))
+
+(deftask test-plumbing []
+  (comp (testing)
+        ;; warn, no snapshot yet
+        (cljs-test/wrap-fs-restore)
+        (cljs-test/wrap-fs-snapshot)
+        (cljs-test/prep-cljs-tests :id "beep/boop")
+        (cljs-test/prep-cljs-tests :id "boop/beep")
+        (cljs :ids #{"beep/boop"})
+        (cljs-test/run-cljs-tests :ids ["beep/boop"] :verbosity 2)
+        (prn-errors "tracked")
+        (cljs-test/wrap-fs-restore)
+        (prn-errors "cleared")
+        (cljs :ids #{"boop/beep"})
+        (cljs-test/run-cljs-tests :ids ["boop/beep"] :verbosity 1)
+        (cljs-test/wrap-fs-restore :keep-errors? true)
+        (prn-errors "retained")
+        ;; fails, compiled suite rolled back
+        (cljs-test/run-cljs-tests :ids ["beep/boop"] :verbosity 2)))
