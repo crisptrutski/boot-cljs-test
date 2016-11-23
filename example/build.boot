@@ -2,18 +2,11 @@
   :source-paths #{"src"}
   :resource-paths #{"resources"}
   :dependencies
-  '[[adzerk/boot-cljs            "1.7.170-3"      :scope "test"]
-    [adzerk/boot-cljs-repl       "0.3.0"          :scope "test"]
-    [pandeiro/boot-http          "0.7.0"          :scope "test"]
-    [crisptrutski/boot-cljs-test "0.3.0-SNAPSHOT" :scope "test"]
-    [org.clojure/clojurescript   "1.7.189"]
+  '[[crisptrutski/boot-cljs-test "0.3.0-SNAPSHOT" :scope "test"]
     [adzerk/boot-test            "1.0.6"]])
 
 (require
-  '[adzerk.boot-cljs            :refer [cljs]]
-  '[adzerk.boot-cljs-repl       :refer [cljs-repl start-repl]]
   '[adzerk.boot-test            :refer :all]
-  '[pandeiro.boot-http          :refer [serve]]
   '[crisptrutski.boot-cljs-test :refer [test-cljs report-errors!] :as cljs-test])
 
 (deftask deps [] identity)
@@ -62,6 +55,12 @@
     (fn [fs]
      (prn label "errors" (crisptrutski.boot-error.core/get-errors fs))
      (handler fs))))
+
+(defn cljs [& args]
+  (merge-env! :dependencies '[[adzerk/boot-cljs "1.7.170-3" :scope "test"]
+                              [org.clojure/clojurescript "1.7.228" :scope "test"]])
+  (require 'adzerk.boot-cljs)
+  (apply @(resolve 'adzerk.boot-cljs/cljs) args))
 
 (deftask test-plumbing []
   (comp (testing)

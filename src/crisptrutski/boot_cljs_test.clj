@@ -10,7 +10,8 @@
     [java.io File]))
 
 (def deps
-  {:adzerk/boot-cljs "1.9.293"
+  {:adzerk/boot-cljs "1.7.228-2"
+   :org.clojure/clojurescript "1.7.228"
    :doo "0.1.7"})
 
 (def default-js-env :phantom)
@@ -222,7 +223,7 @@
    k keep-errors?         bool   "Retain memory of test errors after rollback."
    v verbosity     VAL    int    "Log level, from 1 to 3"
    o out-file      VAL    str    "DEPRECATED Output file for test script."]
-  (ensure-deps! [:adzerk/boot-cljs :doo])
+  (ensure-deps! [:org.clojure/clojurescript :adzerk/boot-cljs :doo])
   (when out-file
     (warn "[boot-cljs] :out-file is deprecated, please use :ids\n")
     (swap! boot/*warnings* inc))
