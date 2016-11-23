@@ -1,6 +1,6 @@
 (ns crisptrutski.boot-cljs-test
   (:require
-    [boot.core :as core :refer [deftask]]
+    [boot.core :as boot :refer [deftask]]
     [boot.util :refer [info dbug warn fail]]
     [clojure.java.io :as io]
     [clojure.string :as str]
@@ -29,8 +29,8 @@
 
 (defn ensure-deps! [keys]
   (when-let [deps (seq (u/filter-deps keys deps))]
-    (warn "Adding: %s to :dependencies" deps)
-    (core/merge-env! :dependencies (scope-as "test" deps))))
+    (warn "Adding: %s to :dependencies\n" deps)
+    (boot/merge-env! :dependencies (scope-as "test" deps))))
 
 (defn validate-cljs-opts! [js-env cljs-opts]
   (ensure-deps! [:doo])
@@ -59,10 +59,10 @@
         edn-file (io/file tmp-main (str out-main ".edn"))
         src-path (relative src-file)
         edn-path (relative edn-file)
-        exists? (into #{} (map core/tmp-path) (u/cljs-files fileset))
+        exists? (into #{} (map boot/tmp-path) (u/cljs-files fileset))
         suite? (or (exists? src-path) (exists? (str/replace src-path ".cljs" ".cljc")))
         edn? (exists? edn-path)
-        edn (when edn? (read-string (slurp (core/tmp-file (core/tmp-get fileset edn-path)))))
+        edn (when edn? (read-string (slurp (boot/tmp-file (boot/tmp-get fileset edn-path)))))
         namespaces (if edn (filter (set (:require edn)) namespaces) namespaces)
         suite-ns (u/file->ns out-main)
         info (if (> verbosity 1) info no-op)]
@@ -82,23 +82,19 @@
           (spit edn-file {:require [suite-ns]})))
     (if (and suite? edn?)
       fileset
-      (core/commit! (core/add-source fileset tmp-main)))))
+      (boot/commit! (boot/add-source fileset tmp-main)))))
 
-(deftask prepare-fs
+(deftask prep-cljs-tests
   "Prepare fileset to compile main entry point for the test suite."
-  [n namespaces NS ^:! #{str} "Namespaces whose tests will be run. All tests will be run if
-                               ommitted.
-                               Use symbols for literals.
-                               Regexes are also supported.
-                               Strings will be coerced to entire regexes."
-   e exclusions NS ^:! #{str} "Namespaces or namesaces patterns to exclude."
-   v verbosity  VAL    int    "Log level, from 1 to 3"
-   i id VAL str "TODO: WRITE ME"]
-  (let [tmp-main (core/tmp-dir!)
+  [n namespaces NS ^:! #{str} "Namespaces to run, supports regexes. If omitted tries \"*-test\" then \"*\"."
+   e exclusions NS ^:! #{str} "Namespaces to exclude, supports regexes."
+   i id         ID     str    "Test runner id. Generates config if not found."
+   v verbosity  VAL    int    "Log level, from 1 to 3"]
+  (let [tmp-main (boot/tmp-dir!)
         verbosity (or verbosity @boot.util/*verbosity* 1)]
-    (core/with-pre-wrap fileset
+    (boot/with-pre-wrap fileset
       (let [namespaces (u/refine-namespaces fileset namespaces exclusions)]
-        (core/empty-dir! tmp-main)
+        (boot/empty-dir! tmp-main)
         (add-suite-ns! fileset tmp-main id namespaces verbosity)))))
 
 (defn- info? [verbosity & args]
@@ -128,14 +124,14 @@
           ((u/r doo.core/assert-compiler-opts) js-env cljs-opts))
         (if-not output-to
           (do (warn "Test script not found: %s\n" filename)
-              (swap! core/*warnings* inc)
+              (swap! boot/*warnings* inc)
               (err (format "Test script not found: %s" filename)))
           (let [dir (.getParentFile (File. ^String output-to))
                 doo-opts (merge
+                           {:verbose (>= verbosity 1)
+                            :debug (>= verbosity 2)}
                            doo-opts
-                           {:exec-dir dir
-                            :verbose (>= verbosity 1)
-                            :debug (>= verbosity 2)})
+                           {:exec-dir dir})
                 _ (add-node-modules! dir)
                 _ (when karma?
                     (when-not @doo-installed?
@@ -150,14 +146,14 @@
                   (err result))))))))
     fileset))
 
-(deftask run-tests
+(deftask run-cljs-tests
   "Execute test reporter on compiled tests"
-  [i ids       IDS [str] ""
-   j js-env    VAL kw    "Environment to execute within, eg. slimer, phantom, ..."
-   c cljs-opts OPTS edn  "Options to pass to the Clojurescript compiler."
-   v verbosity VAL int   "Log level"
-   d doo-opts  VAL code  "Options for doo"
-   x exit?         bool  "End process on failure."]
+  [i ids       IDS  [str] "Test runner ids. Generates each config if not found."
+   j js-env    VAL  kw    "Environment to execute within, eg. slimer, phantom, ..."
+   c cljs-opts OPTS edn   "Options to pass on to CLJS compiler."
+   v verbosity VAL  int   "Log level, from 1 to 3"
+   d doo-opts  VAL  code  "Options to pass on to Doo."
+   x exit?          bool  "Throw exception on error or inability to run tests."]
   (ensure-deps! [:doo])
   (let [js-env (or js-env default-js-env)
         ids (if (seq ids) ids default-ids)
@@ -168,7 +164,15 @@
       (fn [fileset]
         (next-task (run-tests! ids js-env cljs-opts verbosity exit? doo-opts doo-installed? verbosity fileset))))))
 
+(deftask clear-errors
+  "Clear any test errors from the fileset."
+  []
+  (fn [handler]
+    (fn [fs]
+      (handler (err/clear-errors fs)))))
+
 (deftask report-errors!
+  "Throw exception if any test errors have been tracked against the fileset."
   []
   (fn [handler]
     (fn [fs]
@@ -176,40 +180,29 @@
         (throw (RuntimeException. "Some tests failed or errored")))
       (handler (err/clear-errors fs)))))
 
-(defn -test-cljs
-  [js-env namespaces exclusions optimizations ids out-file cljs-opts verbosity update-fs? exit?]
-  (ensure-deps! [:adzerk/boot-cljs :doo])
-  (when out-file
-    (warn "[boot-cljs] :out-file is deprecated, please use :ids\n")
-    (swap! core/*warnings* inc))
-  (let [verbosity (or verbosity @boot.util/*verbosity*)
-        ids (if (seq ids) ids (if out-file (str/replace out-file #"\.js\z" "") default-ids))
-        ids (map #(str/replace % "/" File/separator) ids)
-        optimizations (or optimizations :none)
-        js-env (or js-env default-js-env)
-        cljs-opts (u/combine-cljs-opts cljs-opts optimizations js-env)
-        wrapper (if (or update-fs? ((u/r doo.karma/env?) js-env))
-                  identity
-                  u/wrap-fs-rollback)]
-    (validate-cljs-opts! js-env cljs-opts)
-    (wrapper
-      (comp (reduce
-              comp
-              (for [id ids]
-                (prepare-fs
-                  :id id
-                  :namespaces namespaces
-                  :exclusions exclusions)))
-            ((u/r adzerk.boot-cljs/cljs)
-              :ids (set ids)
-              :compiler-options cljs-opts)
-            (run-tests
-              :ids (vec (distinct ids))
-              :cljs-opts cljs-opts
-              :js-env js-env
-              :exit? exit?
-              :verbosity verbosity)
-            (if exit? (report-errors!) identity)))))
+(deftask wrap-fs-snapshot
+  "Embed snapshot of fileset within itself"
+  []
+  (fn [handler] (fn [fs] (handler (vary-meta fs assoc ::snapshot fs)))))
+
+(deftask wrap-fs-restore
+  "Rollback to embedded snapshot, if it exists"
+  [k keep-errors? bool "Retain memory of test errors after rollback."]
+  (fn [handler]
+    (fn [fs]
+      (let [old-fs (::snapshot (meta fs))]
+        (if old-fs
+          (boot/commit! old-fs)
+          (warn "Fileset snapshot not found\n"))
+        (handler
+          (if keep-errors?
+            (err/track-errors (or old-fs fs) (err/get-errors fs))
+            (or old-fs fs)))))))
+
+(defn multi-comp
+  "Like to `clojure.core/comp`, but support nils and collections of fns."
+  [& fns]
+  (apply comp (remove nil? (flatten fns))))
 
 (deftask test-cljs
   "Run cljs.test tests via the engine of your choice.
@@ -217,15 +210,51 @@
    The --namespaces option specifies the namespaces to test. The default is to
    run tests in all namespaces found in the project."
   [j js-env        VAL    kw     "Environment to execute within, eg. slimer, phantom, ..."
-   n namespaces    NS ^:! #{str} "Namepsaces or namespace patterns to run.
-                                  If omitted uses all namespaces ending in \"-test\"."
-   e exclusions    NS ^:! #{str} "Namespaces or namesaces patterns to exclude."
-   O optimizations LEVEL  kw     "The optimization level, defaults to :none."
-   i ids           IDS    [str]  ""
-   o out-file      VAL    str    "DEPRECATED Output file for test script."
-   c cljs-opts     OPTS   edn    "Options to pass to the Clojurescript compiler."
-   u update-fs?           bool   "Enable fileset changes to be passed on to next task.
-                                  By default hides all effects for suite isolation."
-   v verbosity     VAL    int    "Verbosity level"
-   x exit?                bool   "Throw exception on error or inability to run tests."]
-  (-test-cljs js-env namespaces exclusions optimizations ids out-file cljs-opts verbosity update-fs? exit?))
+   n namespaces    NS ^:! #{str} "Namespaces to run, supports regexes. If omitted tries \"*-test\" then \"*\"."
+   e exclusions    NS ^:! #{str} "Namespaces to exclude, supports regexes."
+   i ids           IDS    [str]  "Test runner ids. Generates each config if not found."
+   c cljs-opts     OPTS   edn    "Options to pass on to CLJS compiler."
+   O optimizations LEVEL  kw     "Optimization level for CLJS compiler, defaults to :none."
+   d doo-opts      VAL    code   "Options to pass on to Doo."
+   u update-fs?           bool   "Skip fileset rollback before running next task.
+                                  By default fileset is rolled back to support additional cljs suites, clean JARs, etc."
+   x exit?                bool   "Throw exception on error or inability to run tests."
+   k keep-errors?         bool   "Retain memory of test errors after rollback."
+   v verbosity     VAL    int    "Log level, from 1 to 3"
+   o out-file      VAL    str    "DEPRECATED Output file for test script."]
+  (ensure-deps! [:adzerk/boot-cljs :doo])
+  (when out-file
+    (warn "[boot-cljs] :out-file is deprecated, please use :ids\n")
+    (swap! boot/*warnings* inc))
+  (let [verbosity (or verbosity @boot.util/*verbosity*)
+        ids (cond
+              (seq ids) ids
+              out-file (str/replace out-file #"\.js\z" "")
+              :else default-ids)
+        ids (map #(str/replace % "/" File/separator) ids)
+        ids (vec (distinct ids))
+        optimizations (or optimizations :none)
+        js-env (or js-env default-js-env)
+        cljs-opts (u/combine-cljs-opts cljs-opts optimizations js-env)
+        ;; karma process is external, so coordinating rollback is not feasible.
+        update-fs? (or update-fs? ((u/r doo.karma/env?) js-env))]
+    (validate-cljs-opts! js-env cljs-opts)
+    (multi-comp
+      (when update-fs? (wrap-fs-snapshot))
+      (for [id ids]
+        (prep-cljs-tests
+          :id id
+          :namespaces namespaces
+          :exclusions exclusions))
+      ((u/r adzerk.boot-cljs/cljs)
+        :ids (set ids)
+        :compiler-options cljs-opts)
+      (run-cljs-tests
+        :ids ids
+        :cljs-opts cljs-opts
+        :doo-opts doo-opts
+        :js-env js-env
+        :exit? exit?
+        :verbosity verbosity)
+      (when exit? (report-errors!))
+      (when update-fs? (wrap-fs-restore :keep-errors? keep-errors?)))))

@@ -1,9 +1,6 @@
 (ns crisptrutski.boot-error.core)
 
-(defn- conjv
-  "Push item onto end of collection. Coerces to vector so that subsequent appends are cheap."
-  [xs x]
-  (conj (vec xs) x))
+(defn- conjv [xs x] (conj (vec xs) x))
 
 (defn track-error
   "Record an error as fileset metadata"
