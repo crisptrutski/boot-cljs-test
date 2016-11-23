@@ -1,11 +1,9 @@
 # boot-cljs-test
 
-Boot task to run ClojureScript tests.
+Boot task to make ClojureScript testing quick, easy, and consistent with testing Clojure.
 
 [![Circle
-CI](https://circleci.com/gh/crisptrutski/boot-cljs-test.svg?style=svg)](https://circleci.com/gh/crisptrutski/boot-cljs-test)
-
-[![Clojars Project](https://img.shields.io/clojars/v/crisptrutski/boot-cljs-test.svg)](https://clojars.org/crisptrutski/boot-cljs-test)
+CI](https://circleci.com/gh/crisptrutski/boot-cljs-test.svg?style=svg)](https://circleci.com/gh/crisptrutski/boot-cljs-test) [![Clojars Project](https://img.shields.io/clojars/v/crisptrutski/boot-cljs-test.svg)](https://clojars.org/crisptrutski/boot-cljs-test)
 
 [](dependency)
 ```clojure
@@ -15,16 +13,15 @@ CI](https://circleci.com/gh/crisptrutski/boot-cljs-test.svg?style=svg)](https://
 
 ## Getting started
 
+Add dependency and require to `build.boot`, and make sure the tests are added to the classpath.
+
 ```
-;; build.boot
 (set-env! :dependencies '[[crisptrutski/boot-cljs-test "0.3.0-SNAPSHOT" :scope "test"]])
+(require '[crisptrutski.boot-cljs-test :refer [test-cljs]])
 (deftask testing [] (merge-env! :source-paths #{"test"}) identity)
-
-;; cli
-> boot testing test-cljs
 ```
 
-And you should get output like this:
+Run `boot testing test-cljs`
 
 ```
 ;; ======================================================================
@@ -35,6 +32,11 @@ And you should get output like this:
 Ran 1337 tests containing 9001 assertions.
 0 failures, 0 errors
 ```
+
+Note that it even took care of generating and compiling a test runner entry point, but will work with your own runner
+namespaces too when their paths correspond to given `ids`.
+
+The heavy lifting of running and reporting errors is handled by the excellent [Doo](https://github.com/bensu/doo)
 
 Supported task options:
 
@@ -56,26 +58,21 @@ Supported task options:
 
 ### More advanced usage:
 
-This library provides some lower level "plumbing" tasks:
+To steal some Git terminology, there `test-cljs` task is the "porcelin" high level API.
 
- 1. `prep-cljs-tests`, which generates boot-cljs edn files and test runner cljs files (if necessary)
- 2. `run-cljs-tests`, which executes a test runner
- 3. `report-errors!`, which throws if any errors were reported in upstream tests
- 4. `clear-errors`, which clears any error reports from upstream tests
- 5. `wrap-fs-snapshot`, which passes current snapshot state down pipeline as metadata
- 6. `wrap-fs-restore`, which rolls back to the snapshot passed down as metadata
+There is also a lower level "plumbing" API which is used to implement it:
 
-The "porcelain" "`test-cljs` task adds conveniences around default values and composes these tasks in the obvious way.
+ 1. `prep-cljs-tests` - generates boot-cljs edn files and test runner cljs files (if necessary)
+ 2. `run-cljs-tests` - executes a test runner
+ 3. `report-errors!` - throws if any errors were reported in upstream tests
+ 4. `clear-errors` - clears any error reports from upstream tests
+ 5. `fs-snapshot` - passes current snapshot state down pipeline as metadata
+ 6. `fs-restore` - rolls back to the snapshot passed down as metadata
 
-The goal is for `test-cljs` to support most workflows, but it can be inefficient for builds with lots of suites and/or runners.
+These could also be referred to as the "simple" vs "easy" APIs ;)
 
-To carve out extra efficiency, or to perform more exotic workflows, we recommend using these tasks directly, which form part of the public API.
+The `test-cljs` task roughly speaking just composes these tasks in the obvious way:
 
-Some example workflows that currently would require using "plumbing" API:
+`fs-snapshot -> prep-cljs-tests -> run-cljs-tests -> report-errors -> fs-restore`
 
-1. Running the same suite(s) in multiple environments (eg. headless and multiple browsers) without recompiling.
-2. Building multiple test suites based on different regexes within the same `adzerk.boot-cljs/cljs` run.
-3. Building non-test `ids` within the same `adzerk.boot-cljs/cljs` run.
-4. Run all tests suites before reporting failure from any of them
-
-Some of these workflows, eg. (1) and (4) are not actually terribly
+If you need to support more exotic workflows, or carve out efficiency - just use these tasks directly!
