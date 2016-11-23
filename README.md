@@ -13,7 +13,7 @@ CI](https://circleci.com/gh/crisptrutski/boot-cljs-test.svg?style=svg)](https://
 
 ## Getting started
 
-Add dependency and require to `build.boot`, and make sure the tests are added to the classpath.
+Add to `build.boot` and make sure the tests are added to the classpath.
 
 ```
 (set-env! :dependencies '[[crisptrutski/boot-cljs-test "0.3.0-SNAPSHOT" :scope "test"]])
@@ -24,19 +24,20 @@ Add dependency and require to `build.boot`, and make sure the tests are added to
 Run `boot testing test-cljs`
 
 ```
-;; ======================================================================
-;; Testing with Phantom:
-
-;; Testing your.awesome.thing-test
+;; Testing your.awesome.foo-test
+;; Testing your.spectauclar.bar-test
 
 Ran 1337 tests containing 9001 assertions.
 0 failures, 0 errors
 ```
 
-Note that it even took care of generating and compiling a test runner entry point, but will work with your own runner
-namespaces too when their paths correspond to given `ids`.
+The task takes care of generating tedious runner namespaces for you!
+
+You can also use our own runner namespaces - they will be detected when building an `id` that corresponds to that namespace.
 
 The heavy lifting of running and reporting errors is handled by the excellent [Doo](https://github.com/bensu/doo)
+
+There are a lot of options and conveniences, some of which are demo'd in [this example project](/example)
 
 Supported task options:
 
