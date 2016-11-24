@@ -90,7 +90,7 @@
   [n namespaces NS ^:! #{str} "Namespaces to run, supports regexes. If omitted tries \"*-test\" then \"*\"."
    e exclusions NS ^:! #{str} "Namespaces to exclude, supports regexes."
    i id         ID     str    "Test runner id. Generates config if not found."
-   v verbosity  VAL    int    "Log level, from 1 to 3"]
+   v verbosity  VAL    int    "Log level, from 0 to 3"]
   (let [tmp-main (boot/tmp-dir!)
         verbosity (or verbosity @boot.util/*verbosity* 1)]
     (boot/with-pre-wrap fileset
@@ -129,7 +129,7 @@
               (err (format "Test script not found: %s" filename)))
           (let [dir (.getParentFile (File. ^String output-to))
                 doo-opts (merge
-                           {:verbose (> verbosity 1)
+                           {:verbose (>= verbosity 1)
                             :debug (> verbosity 2)}
                            doo-opts
                            {:exec-dir dir})
@@ -152,7 +152,7 @@
   [i ids       IDS  [str] "Test runner ids. Generates each config if not found."
    j js-env    VAL  kw    "Environment to execute within, eg. slimer, phantom, ..."
    c cljs-opts OPTS edn   "Options to pass on to CLJS compiler."
-   v verbosity VAL  int   "Log level, from 1 to 3"
+   v verbosity VAL  int   "Log level, from 0 to 3"
    d doo-opts  VAL  code  "Options to pass on to Doo."
    x exit?          bool  "Throw exception on error or inability to run tests."]
   (ensure-deps! [:doo])
@@ -221,7 +221,7 @@
                                   By default fileset is rolled back to support additional cljs suites, clean JARs, etc."
    x exit?                bool   "Throw exception on error or inability to run tests."
    k keep-errors?         bool   "Retain memory of test errors after rollback."
-   v verbosity     VAL    int    "Log level, from 1 to 3"
+   v verbosity     VAL    int    "Log level, from 0 to 3"
    o out-file      VAL    str    "DEPRECATED Output file for test script."]
   (ensure-deps! [:org.clojure/clojurescript :adzerk/boot-cljs :doo])
   (when out-file
