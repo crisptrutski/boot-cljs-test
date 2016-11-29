@@ -7,7 +7,7 @@ CI](https://circleci.com/gh/crisptrutski/boot-cljs-test.svg?style=svg)](https://
 
 [](dependency)
 ```clojure
-[crisptrutski/boot-cljs-test "0.3.0-SNAPSHOT"] ;; latest release
+[crisptrutski/boot-cljs-test "0.3.0"] ;; latest release
 ```
 [](/dependency)
 
@@ -16,7 +16,7 @@ CI](https://circleci.com/gh/crisptrutski/boot-cljs-test.svg?style=svg)](https://
 Add to `build.boot` and make sure the tests are added to the classpath.
 
 ```
-(set-env! :dependencies '[[crisptrutski/boot-cljs-test "0.3.0-SNAPSHOT" :scope "test"]])
+(set-env! :dependencies '[[crisptrutski/boot-cljs-test "0.3.0" :scope "test"]])
 (require '[crisptrutski.boot-cljs-test :refer [test-cljs]])
 (deftask testing [] (merge-env! :source-paths #{"test"}) identity)
 ```

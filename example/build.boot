@@ -2,7 +2,7 @@
   :source-paths #{"src"}
   :resource-paths #{"resources"}
   :dependencies
-  '[[crisptrutski/boot-cljs-test "0.3.0-SNAPSHOT" :scope "test"]
+  '[[crisptrutski/boot-cljs-test "0.3.0" :scope "test"]
     [adzerk/boot-test            "1.0.6"]])
 
 (require
