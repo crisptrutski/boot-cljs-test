@@ -18,7 +18,6 @@
 (deftask test-id []
   (comp (testing)
         (test-cljs
-          :exit? true
           :ids ["boot_cljs_test_example/suite"])))
 
 (deftask test-ids []
@@ -34,8 +33,7 @@
 (deftask test-namespaces []
   (comp (testing)
         (test-cljs
-          :namespaces [#".*\.lib.*" "wutc"]
-          :exit? true)))
+          :namespaces [#".*\.lib.*" "wutc"])))
 
 (deftask test-all []
   (comp (testing)

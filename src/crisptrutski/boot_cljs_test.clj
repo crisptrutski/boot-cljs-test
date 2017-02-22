@@ -4,8 +4,7 @@
     [boot.util :refer [info dbug warn fail]]
     [clojure.java.io :as io]
     [clojure.string :as str]
-    [crisptrutski.boot-cljs-test.utils :as u]
-    [crisptrutski.boot-error.core :as err])
+    [crisptrutski.boot-cljs-test.utils :as u])
   (:import
     [java.io File]))
 
@@ -107,45 +106,42 @@
             :when (.isFile f)]
       (io/copy f (doto (io/file dir f) (io/make-parents))))))
 
-(defn run-tests! [ids js-env cljs-opts v exit? doo-opts doo-installed? verbosity fileset]
-  (err/with-errors!
-    (info? v "Running cljs tests...\n")
-    ((u/r doo.core/print-envs) js-env)
-    (doseq [id ids]
-      (when (> (count ids) 1) (info? v "• %s\n" id))
-      (let [filename (str id ".js")
-            karma? ((u/r doo.karma/env?) js-env)
-            output-to (u/find-path fileset filename)
-            output-dir (when output-to (str/replace output-to #"\.js\z" ".out"))
-            cljs-opts (when output-to (u/build-cljs-opts cljs-opts output-to output-dir))
-            err (if exit?
-                  #(throw (RuntimeException. ^String (:out % %)))
-                  #(err/track-error! (if (map? %) % {:exit 1 :out "" :err %})))]
-        (when output-to
-          ((u/r doo.core/assert-compiler-opts) js-env cljs-opts))
-        (if-not output-to
-          (do (warn "Test script not found: %s\n" filename)
-              (swap! boot/*warnings* inc)
-              (err (format "Test script not found: %s" filename)))
-          (let [dir (.getParentFile (File. ^String output-to))
-                doo-opts (merge
-                           {:verbose (>= verbosity 1)
-                            :debug (> verbosity 2)}
-                           doo-opts
-                           {:exec-dir dir})
-                _ (add-node-modules! dir)
-                _ (when karma?
-                    (when-not @doo-installed?
-                      (reset! doo-installed? true)
-                      ((u/r doo.core/install!) [js-env] cljs-opts doo-opts)
-                      (Thread/sleep 1000)))]
-            (if karma?
-              ((u/r doo.core/karma-run!) doo-opts)
-              (let [{:keys [exit] :as result}
-                    ((u/r doo.core/run-script) js-env cljs-opts doo-opts)]
-                (when (pos? exit)
-                  (err result))))))))
-    fileset))
+(defn run-tests! [ids js-env cljs-opts v doo-opts doo-installed? verbosity fileset]
+  (info? v "Running cljs tests...\n")
+  ((u/r doo.core/print-envs) js-env)
+  (doseq [id ids]
+    (when (> (count ids) 1) (info? v "• %s\n" id))
+    (let [filename (str id ".js")
+          karma? ((u/r doo.karma/env?) js-env)
+          output-to (u/find-path fileset filename)
+          output-dir (when output-to (str/replace output-to #"\.js\z" ".out"))
+          cljs-opts (when output-to (u/build-cljs-opts cljs-opts output-to output-dir))
+          err #(throw (RuntimeException. ^String (:out % %)))]
+      (when output-to
+        ((u/r doo.core/assert-compiler-opts) js-env cljs-opts))
+      (if-not output-to
+        (do (warn "Test script not found: %s\n" filename)
+            (swap! boot/*warnings* inc)
+            (err (format "Test script not found: %s" filename)))
+        (let [dir (.getParentFile (File. ^String output-to))
+              doo-opts (merge
+                         {:verbose (>= verbosity 1)
+                          :debug (> verbosity 2)}
+                         doo-opts
+                         {:exec-dir dir})
+              _ (add-node-modules! dir)
+              _ (when karma?
+                  (when-not @doo-installed?
+                    (reset! doo-installed? true)
+                    ((u/r doo.core/install!) [js-env] cljs-opts doo-opts)
+                    (Thread/sleep 1000)))]
+          (if karma?
+            ((u/r doo.core/karma-run!) doo-opts)
+            (let [{:keys [exit] :as result}
+                  ((u/r doo.core/run-script) js-env cljs-opts doo-opts)]
+              (when (pos? exit)
+                (err result))))))))
+  fileset)
 
 (deftask run-cljs-tests
   "Execute test reporter on compiled tests"
@@ -153,8 +149,7 @@
    j js-env    VAL  kw    "Environment to execute within, eg. slimer, phantom, ..."
    c cljs-opts OPTS edn   "Options to pass on to CLJS compiler."
    v verbosity VAL  int   "Log level, from 0 to 3"
-   d doo-opts  VAL  code  "Options to pass on to Doo."
-   x exit?          bool  "Throw exception on error or inability to run tests."]
+   d doo-opts  VAL  code  "Options to pass on to Doo."]
   (ensure-deps! [:doo])
   (let [js-env (or js-env default-js-env)
         ids (if (seq ids) ids default-ids)
@@ -163,23 +158,7 @@
     (validate-cljs-opts! js-env cljs-opts)
     (fn [next-task]
       (fn [fileset]
-        (next-task (run-tests! ids js-env cljs-opts verbosity exit? doo-opts doo-installed? verbosity fileset))))))
-
-(deftask clear-errors
-  "Clear any test errors from the fileset."
-  []
-  (fn [handler]
-    (fn [fs]
-      (handler (err/clear-errors fs)))))
-
-(deftask report-errors!
-  "Throw exception if any test errors have been tracked against the fileset."
-  []
-  (fn [handler]
-    (fn [fs]
-      (when (seq (err/get-errors fs))
-        (throw (RuntimeException. "Some tests failed or errored")))
-      (handler (err/clear-errors fs)))))
+        (next-task (run-tests! ids js-env cljs-opts verbosity doo-opts doo-installed? verbosity fileset))))))
 
 (deftask fs-snapshot
   "Embed snapshot of fileset within itself"
@@ -188,17 +167,14 @@
 
 (deftask fs-restore
   "Rollback to embedded snapshot, if it exists"
-  [k keep-errors? bool "Retain memory of test errors after rollback."]
+  []
   (fn [handler]
     (fn [fs]
       (let [old-fs (::snapshot (meta fs))]
         (if old-fs
           (boot/commit! old-fs)
           (warn "Fileset snapshot not found\n"))
-        (handler
-          (if keep-errors?
-            (err/track-errors (or old-fs fs) (err/get-errors fs))
-            (or old-fs fs)))))))
+        (handler (or old-fs fs))))))
 
 (defn multi-comp
   "Like to `clojure.core/comp`, but support nils and collections of fns."
@@ -219,8 +195,6 @@
    d doo-opts      VAL    code   "Options to pass on to Doo."
    u update-fs?           bool   "Skip fileset rollback before running next task.
                                   By default fileset is rolled back to support additional cljs suites, clean JARs, etc."
-   x exit?                bool   "Throw exception on error or inability to run tests."
-   k keep-errors?         bool   "Retain memory of test errors after rollback."
    v verbosity     VAL    int    "Log level, from 0 to 3"
    o out-file      VAL    str    "DEPRECATED Output file for test script."]
   (ensure-deps! [:org.clojure/clojurescript :adzerk/boot-cljs :doo])
@@ -255,7 +229,5 @@
         :cljs-opts cljs-opts
         :doo-opts doo-opts
         :js-env js-env
-        :exit? exit?
         :verbosity verbosity)
-      (when exit? (report-errors!))
-      (when update-fs? (fs-restore :keep-errors? keep-errors?)))))
+      (when update-fs? (fs-restore)))))
