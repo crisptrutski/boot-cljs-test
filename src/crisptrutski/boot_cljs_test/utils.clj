@@ -4,8 +4,7 @@
     [boot.pod :as pod]
     [boot.util :refer [warn]]
     [clojure.java.io :as io]
-    [clojure.string :as str]
-    [crisptrutski.boot-error.core :as err])
+    [clojure.string :as str])
   (:import
     [java.io File]
     [java.util.regex Pattern]

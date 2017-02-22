@@ -115,14 +115,11 @@
           karma? ((u/r doo.karma/env?) js-env)
           output-to (u/find-path fileset filename)
           output-dir (when output-to (str/replace output-to #"\.js\z" ".out"))
-          cljs-opts (when output-to (u/build-cljs-opts cljs-opts output-to output-dir))
-          err #(throw (RuntimeException. ^String (:out % %)))]
+          cljs-opts (when output-to (u/build-cljs-opts cljs-opts output-to output-dir))]
       (when output-to
         ((u/r doo.core/assert-compiler-opts) js-env cljs-opts))
       (if-not output-to
-        (do (warn "Test script not found: %s\n" filename)
-            (swap! boot/*warnings* inc)
-            (err (format "Test script not found: %s" filename)))
+        (throw (Exception. (format "Test script not found: %s" filename)))
         (let [dir (.getParentFile (File. ^String output-to))
               doo-opts (merge
                          {:verbose (>= verbosity 1)
@@ -140,7 +137,7 @@
             (let [{:keys [exit] :as result}
                   ((u/r doo.core/run-script) js-env cljs-opts doo-opts)]
               (when (pos? exit)
-                (err result))))))))
+                (throw (ex-info (:out result) {:boot.util/omit-stacktrace? true})))))))))
   fileset)
 
 (deftask run-cljs-tests
