@@ -68,7 +68,7 @@
         suite-ns (u/file->ns out-main)
         namespace? (not (or suite? (re-find #"./" id)))
         suite-ns (if namespace? (symbol (str "boot-cljs-test-suite." (str suite-ns))) suite-ns)
-        src-file (if namespace? (doto (io/file tmp-main (str "boot-cljs-test-suite/" out-main)) io/make-parents) src-file)
+        src-file (if namespace? (doto (io/file tmp-main (str "boot_cljs_test_suite/" out-main)) io/make-parents) src-file)
         src-path (relative src-file)
         info (if (> verbosity 1) info no-op)]
     (if suite?
