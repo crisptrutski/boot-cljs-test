@@ -66,6 +66,7 @@
         edn (when edn? (read-string (slurp (boot/tmp-file (boot/tmp-get fileset edn-path)))))
         namespaces (if edn (filter (set (:require edn)) namespaces) namespaces)
         suite-ns (u/file->ns out-main)
+        suite-ns (if (re-find #"\." suite-ns) suite-ns (str "boot-cljs-test-suite." suite-ns))
         info (if (> verbosity 1) info no-op)]
     (if suite?
       (info "Using %s...\n" src-path)
