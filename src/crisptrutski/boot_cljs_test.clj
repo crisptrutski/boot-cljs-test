@@ -66,7 +66,10 @@
         edn (when edn? (read-string (slurp (boot/tmp-file (boot/tmp-get fileset edn-path)))))
         namespaces (if edn (filter (set (:require edn)) namespaces) namespaces)
         suite-ns (u/file->ns out-main)
-        suite-ns (if (re-find #"\." (name suite-ns)) suite-ns (symbol (str "boot-cljs-test-suite." (name suite-ns))))
+        namespace? (not (or suite? (re-find #"./" id)))
+        suite-ns (if namespace? (symbol (str "boot-cljs-test-suite." (str suite-ns))) suite-ns)
+        src-file (if namespace? (doto (io/file tmp-main (str "boot-cljs-test-suite/" out-main)) io/make-parents) src-file)
+        src-path (relative src-file)
         info (if (> verbosity 1) info no-op)]
     (if suite?
       (info "Using %s...\n" src-path)
