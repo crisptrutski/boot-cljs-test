@@ -106,7 +106,7 @@
   (doseq [path (conj (boot/get-env :resource-paths) "node_modules")
           :let [f (io/file path)]
           :when (.exists f)]
-    (file/hard-link f (io/file dir path))))
+    (file/sym-link f (io/file dir path))))
 
 (defn run-tests! [ids js-env cljs-opts v exit? doo-opts doo-installed? verbosity fileset]
   (err/with-errors!
