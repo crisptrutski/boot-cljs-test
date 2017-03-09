@@ -1,6 +1,7 @@
 (ns crisptrutski.boot-cljs-test
   (:require
     [boot.core :as boot :refer [deftask]]
+    [boot.file :as file]
     [boot.util :refer [info dbug warn fail]]
     [clojure.java.io :as io]
     [clojure.string :as str]
@@ -102,10 +103,10 @@
   (when (> verbosity 1) (apply info args)))
 
 (defn add-node-modules! [dir]
-  (when (.exists (io/file "node_modules"))
-    (doseq [f (file-seq (io/file "node_modules"))
-            :when (.isFile f)]
-      (io/copy f (doto (io/file dir f) (io/make-parents))))))
+  (doseq [path (conj (boot/get-env :resource-paths) "node_modules")
+          :let [f (io/file path)]
+          :when (.exists f)]
+    (file/sym-link f (io/file dir path))))
 
 (defn run-tests! [ids js-env cljs-opts v exit? doo-opts doo-installed? verbosity fileset]
   (err/with-errors!
