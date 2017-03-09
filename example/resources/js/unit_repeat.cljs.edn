@@ -1,0 +1,2 @@
+{:require [boot-cljs-test-example.lib-test]
+ :compiler-options {:asset-path "js/unit_repeat.out"}}

@@ -10,11 +10,12 @@
 (require '[adzerk.bootlaces :refer :all]
          '[adzerk.boot-test :refer :all])
 
-(def +version+ "0.3.0")
+(def +version+ "0.3.1-SNAPSHOT")
 
 (bootlaces! +version+)
 
 (task-options!
+ push {:ensure-branch nil}
  pom  {:project     'crisptrutski/boot-cljs-test
        :version     +version+
        :description "Boot task to run ClojureScript tests."

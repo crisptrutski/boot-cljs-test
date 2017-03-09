@@ -19,13 +19,19 @@
   (comp (testing)
         (test-cljs
           :exit? true
-          :ids ["boot_cljs_test_example/suite"])))
+          :ids ["unit"])))
 
 (deftask test-ids []
   (comp (testing)
         (test-cljs
-          :ids ["boot_cljs_test_example/unit"
+          :ids ["unit" 
                 "boot_cljs_test_example/integration_suite"])))
+
+(deftask test-asset-path []
+  (comp (testing)
+        (test-cljs
+          :exit? true
+          :ids ["js/unit_repeat"])))
 
 (deftask test-exclusions []
   (comp (testing)

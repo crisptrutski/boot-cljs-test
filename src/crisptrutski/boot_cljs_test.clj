@@ -67,6 +67,10 @@
         edn (when edn? (read-string (slurp (boot/tmp-file (boot/tmp-get fileset edn-path)))))
         namespaces (if edn (filter (set (:require edn)) namespaces) namespaces)
         suite-ns (u/file->ns out-main)
+        namespace? (not (or suite? (re-find #"./" id)))
+        suite-ns (if namespace? (symbol (str "boot-cljs-test-suite." (str suite-ns))) suite-ns)
+        src-file (if namespace? (doto (io/file tmp-main (str "boot_cljs_test_suite/" out-main)) io/make-parents) src-file)
+        src-path (relative src-file)
         info (if (> verbosity 1) info no-op)]
     (if suite?
       (info "Using %s...\n" src-path)
@@ -128,13 +132,29 @@
           (do (warn "Test script not found: %s\n" filename)
               (swap! boot/*warnings* inc)
               (err (format "Test script not found: %s" filename)))
-          (let [dir (.getParentFile (File. ^String output-to))
+          (let [edn-path (io/resource (str id ".cljs.edn"))
+                ;; skip asset path unless optimization :none
+                asset-path (when edn-path (:asset-path (:compiler-options (read-string (slurp edn-path)))))
+                asset-path (or asset-path (:asset-path cljs-opts))
+                asset-path (when asset-path (str/trim (str/replace asset-path #"(.)(/|\\)+$" "$1")))
+                cljs-opts (if asset-path (assoc cljs-opts :asset-path asset-path) cljs-opts)
+                run-dir (if asset-path
+                          (File.
+                            (if (.endsWith output-dir asset-path)
+                              (subs output-dir 0 (- (count output-dir) (inc (count asset-path))))
+                              (let [msg (str "Expected path " (pr-str output-dir) " to end with :asset-path " (pr-str asset-path) "\n")]
+                                (warn msg)
+                                (swap! boot/*warnings* inc)
+                                (err msg)
+                                ;; erm..
+                                output-dir)))
+                          (.getParentFile (File. ^String output-to)))
                 doo-opts (merge
                            {:verbose (>= verbosity 1)
                             :debug (> verbosity 2)}
                            doo-opts
-                           {:exec-dir dir})
-                _ (add-node-modules! dir)
+                           {:exec-dir run-dir})
+                _ (add-node-modules! run-dir)
                 _ (when karma?
                     (when-not @doo-installed?
                       (reset! doo-installed? true)
