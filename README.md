@@ -54,7 +54,6 @@ Supported task options:
   -d, --doo-opts VAL         Sets options to pass on to Doo.
   -u, --update-fs?           Skip fileset rollback before running next task.
                              By default fileset is rolled back to support additional cljs suites, clean JARs, etc.
-  -x, --exit?                Throw exception on error or inability to run tests.
   -k, --keep-errors?         Retain memory of test errors after rollback.
   -v, --verbosity VAL        Log level, from 1 to 3.
 ```

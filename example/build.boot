@@ -2,12 +2,13 @@
   :source-paths #{"src"}
   :resource-paths #{"resources"}
   :dependencies
-  '[[crisptrutski/boot-cljs-test "0.3.0" :scope "test"]
+  '[[org.clojure/clojure "1.8.0" :scope "provided"]
+    [crisptrutski/boot-cljs-test "0.4.0-SNAPSHOT" :scope "test"]
     [adzerk/boot-test            "1.0.6"]])
 
 (require
   '[adzerk.boot-test            :refer :all]
-  '[crisptrutski.boot-cljs-test :refer [test-cljs report-errors!] :as cljs-test])
+  '[crisptrutski.boot-cljs-test :refer [test-cljs] :as cljs-test])
 
 (deftask deps [] identity)
 
@@ -18,7 +19,6 @@
 (deftask test-id []
   (comp (testing)
         (test-cljs
-          :exit? true
           :ids ["boot_cljs_test_example/suite"])))
 
 (deftask test-ids []
@@ -34,14 +34,12 @@
 (deftask test-namespaces []
   (comp (testing)
         (test-cljs
-          :namespaces [#".*\.lib.*" "wutc"]
-          :exit? true)))
+          :namespaces [#".*\.lib.*" "wutc"])))
 
 (deftask test-all []
   (comp (testing)
-        (test-cljs :keep-errors? true)
-        (test)
-        (report-errors!)))
+        (test-cljs)
+        (test)))
 
 (deftask test-watch-karma []
   (comp (testing)
@@ -50,14 +48,8 @@
         (test-cljs :js-env :chrome)
         (test)))
 
-(defn prn-errors [label]
-  (fn [handler]
-    (fn [fs]
-     (prn label "errors" (crisptrutski.boot-error.core/get-errors fs))
-     (handler fs))))
-
 (defn cljs [& args]
-  (merge-env! :dependencies '[[adzerk/boot-cljs "1.7.170-3" :scope "test"]
+  (merge-env! :dependencies '[[adzerk/boot-cljs "1.7.228-2" :scope "test"]
                               [org.clojure/clojurescript "1.7.228" :scope "test"]])
   (require 'adzerk.boot-cljs)
   (apply @(resolve 'adzerk.boot-cljs/cljs) args))
@@ -71,12 +63,9 @@
         (cljs-test/prep-cljs-tests :id "boop/beep")
         (cljs :ids #{"beep/boop"})
         (cljs-test/run-cljs-tests :ids ["beep/boop"] :verbosity 2)
-        (prn-errors "tracked")
         (cljs-test/fs-restore)
-        (prn-errors "cleared")
         (cljs :ids #{"boop/beep"})
         (cljs-test/run-cljs-tests :ids ["boop/beep"] :verbosity 1)
-        (cljs-test/fs-restore :keep-errors? true)
-        (prn-errors "retained")
+        (cljs-test/fs-restore)
         ;; fails, compiled suite rolled back
         (cljs-test/run-cljs-tests :ids ["beep/boop"] :verbosity 2)))
