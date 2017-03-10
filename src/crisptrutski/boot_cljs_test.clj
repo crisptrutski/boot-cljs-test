@@ -102,11 +102,11 @@
 (defn- info? [verbosity & args]
   (when (> verbosity 1) (apply info args)))
 
-(defn add-node-modules! [dir]
+(defn link-resources! [dir]
   (doseq [path (conj (boot/get-env :resource-paths) "node_modules")
           :let [f (io/file path)]
           :when (.exists f)]
-    (file/sym-link f (io/file dir path))))
+    (file/sym-link f (doto (io/file dir path) (io/make-parents)))))
 
 (defn run-tests! [ids js-env cljs-opts v exit? doo-opts doo-installed? verbosity fileset]
   (err/with-errors!
@@ -134,7 +134,7 @@
                             :debug (> verbosity 2)}
                            doo-opts
                            {:exec-dir dir})
-                _ (add-node-modules! dir)
+                _ (link-resources! dir)
                 _ (when karma?
                     (when-not @doo-installed?
                       (reset! doo-installed? true)
