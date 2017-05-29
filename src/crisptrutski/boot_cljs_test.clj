@@ -242,7 +242,7 @@
         update-fs? (or update-fs? ((u/r doo.karma/env?) js-env))]
     (validate-cljs-opts! js-env cljs-opts)
     (multi-comp
-      (when update-fs? (fs-snapshot))
+      (when-not update-fs? (fs-snapshot))
       (for [id ids]
         (prep-cljs-tests
           :id id
@@ -259,4 +259,4 @@
         :exit? exit?
         :verbosity verbosity)
       (when exit? (report-errors!))
-      (when update-fs? (fs-restore :keep-errors? keep-errors?)))))
+      (when-not update-fs? (fs-restore :keep-errors? keep-errors?)))))
