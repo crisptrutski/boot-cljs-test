@@ -105,8 +105,10 @@
 (defn link-resources! [dir]
   (doseq [path (conj (boot/get-env :resource-paths) "node_modules")
           :let [f (io/file path)]
-          :when (.exists f)]
-    (file/sym-link f (doto (io/file dir path) (io/make-parents)))))
+          :when (.exists f)
+          :let [dest (doto (io/file dir path) (io/make-parents))]
+          :when (not (.exists dest))]
+    (file/hard-link f dest)))
 
 (defn run-tests! [ids js-env cljs-opts v exit? doo-opts doo-installed? verbosity fileset]
   (err/with-errors!
@@ -242,7 +244,7 @@
         update-fs? (or update-fs? ((u/r doo.karma/env?) js-env))]
     (validate-cljs-opts! js-env cljs-opts)
     (multi-comp
-      (when update-fs? (fs-snapshot))
+      (when-not update-fs? (fs-snapshot))
       (for [id ids]
         (prep-cljs-tests
           :id id
@@ -259,4 +261,4 @@
         :exit? exit?
         :verbosity verbosity)
       (when exit? (report-errors!))
-      (when update-fs? (fs-restore :keep-errors? keep-errors?)))))
+      (when-not update-fs? (fs-restore :keep-errors? keep-errors?)))))
