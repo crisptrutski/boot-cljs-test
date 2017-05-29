@@ -105,8 +105,10 @@
 (defn link-resources! [dir]
   (doseq [path (conj (boot/get-env :resource-paths) "node_modules")
           :let [f (io/file path)]
-          :when (.exists f)]
-    (file/sym-link f (doto (io/file dir path) (io/make-parents)))))
+          :when (.exists f)
+          :let [dest (doto (io/file dir path) (io/make-parents))]
+          :when (not (.exists dest))]
+    (file/hard-link f dest)))
 
 (defn run-tests! [ids js-env cljs-opts v exit? doo-opts doo-installed? verbosity fileset]
   (err/with-errors!
