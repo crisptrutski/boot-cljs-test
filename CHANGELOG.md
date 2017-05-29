@@ -1,5 +1,9 @@
 # Changes
 
+## 0.3.1
+
+- Fix behaviour of `update-fs?` (had the reverse behaviour)
+
 ## 0.3.0
 
 - Removed: :suite-ns replaced with `boot-cljs` compatible ids.
