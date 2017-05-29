@@ -2,8 +2,9 @@
   :source-paths #{"src"}
   :resource-paths #{"resources"}
   :dependencies
-  '[[crisptrutski/boot-cljs-test "0.3.0" :scope "test"]
-    [adzerk/boot-test            "1.0.6"]])
+  '[[org.clojure/clojure "1.8.0"]
+    [crisptrutski/boot-cljs-test "0.3.1" :scope "test"]
+    [adzerk/boot-test            "1.2.0"]])
 
 (require
   '[adzerk.boot-test            :refer :all]
@@ -57,8 +58,8 @@
      (handler fs))))
 
 (defn cljs [& args]
-  (merge-env! :dependencies '[[adzerk/boot-cljs "1.7.170-3" :scope "test"]
-                              [org.clojure/clojurescript "1.7.228" :scope "test"]])
+  (merge-env! :dependencies '[[adzerk/boot-cljs "2.0.0" :scope "test"]
+                              [org.clojure/clojurescript "1.9.562" :scope "test"]])
   (require 'adzerk.boot-cljs)
   (apply @(resolve 'adzerk.boot-cljs/cljs) args))
 
