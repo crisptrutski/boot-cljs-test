@@ -3,7 +3,7 @@
   :resource-paths #{"resources"}
   :dependencies
   '[[org.clojure/clojure "1.8.0"]
-    [crisptrutski/boot-cljs-test "0.3.1" :scope "test"]
+    [crisptrutski/boot-cljs-test "0.3.2-SNAPSHOT" :scope "test"]
     [adzerk/boot-test            "1.2.0"]])
 
 (require
