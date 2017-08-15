@@ -10,17 +10,33 @@
   (:import
     [java.io File]))
 
-(def deps
+#_(set! *warn-on-reflection* true)
+
+(def default-js-env :phantom)
+(def default-ids ["cljs_test/generated_test_suite"])
+(def default-deps
   {:adzerk/boot-cljs "1.7.228-2"
    :org.clojure/clojurescript "1.7.228"
    :doo "0.1.7"})
 
-(def default-js-env :phantom)
-(def default-ids ["cljs_test/generated_test_suite"])
+;; utils
 
-;; core
+(defn- no-op [& _])
 
-(defn no-op [& _])
+(defn- fcomp
+  "Like to `clojure.core/comp`, but support nils and collections of fns."
+  [& fns]
+  (apply comp (remove nil? (flatten fns))))
+
+(defmacro named-map
+  "Capture bindings as a map,
+   eg. (let [a 1
+             b 2
+             c 3]
+          (named-map a b c))
+       => {:a 1, :b 2, :c 3}"
+  [& map]
+  `(hash-map ~@(mapcat (juxt keyword identity) map)))
 
 (defn- scope-as
   "Modify dependency co-ords to have particular scope.
@@ -29,12 +45,16 @@
   (for [co-ords deps]
     (conj co-ords :scope scope)))
 
-(defn ensure-deps! [keys]
-  (when-let [deps (seq (u/filter-deps keys deps))]
+(defn- ensure-deps!
+  "Ensure all dependencies are met by loading default version of those missing."
+  [keys]
+  (when-let [deps (seq (u/filter-deps keys default-deps))]
     (warn "Adding: %s to :dependencies\n" deps)
     (boot/merge-env! :dependencies (scope-as "test" deps))))
 
-(defn validate-cljs-opts! [js-env cljs-opts]
+(defn assert-compiler-opts!
+  "Assert that compiler options are compatible with given test runner."
+  [js-env cljs-opts]
   (ensure-deps! [:doo])
   ((u/r doo.core/assert-compiler-opts)
     js-env
@@ -42,6 +62,45 @@
       :output-to "placeholder"
       :output-dir "placeholder"
       :assert-path "placeholder")))
+
+(defn- info? [verbosity & args]
+  (when (> verbosity 1) (apply info args)))
+
+(defn- file-ref [parent child]
+  (doto (io/file parent child)
+    (io/make-parents)))
+
+(defn- resource-paths []
+  (->> (conj (boot/get-env :resource-paths) "node_modules")
+       (map io/file)
+       (filter #(.exists ^File %))))
+
+(defn- normalize-task-opts
+  [{:keys [ids js-env cljs-opts optimizations out-file
+           verbosity doo-opts symlink? exit?
+           namespaces exclusions]}]
+  (let [ids (cond
+              (seq ids) ids
+              out-file (str/replace out-file #"\.js\z" "")
+              :else default-ids)
+        ids (map #(str/replace % "/" File/separator) ids)
+        ids (vec (distinct ids))
+        js-env (or js-env default-js-env)
+        cljs-opts (u/combine-cljs-opts cljs-opts (or optimizations :none) js-env)]
+    (assert-compiler-opts! js-env cljs-opts)
+    {:ids ids
+     :js-env js-env
+     :cljs-opts cljs-opts
+     :doo-installed? (atom false)
+     :verbosity (or verbosity @boot.util/*verbosity*)
+     :doo-opts doo-opts
+     :symlink? symlink?
+     :out-file out-file
+     :exclusions exclusions
+     :namespaces namespaces
+     :exit? exit?}))
+
+;; subtasks
 
 (defn- gen-suite-ns
   "Generate source-code for default test suite."
@@ -52,10 +111,10 @@
          (map #(with-out-str (clojure.pprint/pprint %)))
          (str/join "\n"))))
 
-(defn add-suite-ns!
-  "Add test suite bootstrap script to fileset."
-  [fileset tmp-main id namespaces verbosity]
-  (let [relative #(u/relativize (.getPath tmp-main) (.getPath %))
+(defn ensure-suite-ns!
+  "Ensure test suite is included in fileset and build options, and generate it if not already found."
+  [fileset ^File tmp-main id namespaces verbosity]
+  (let [relative #(u/relativize (.getPath tmp-main) (.getPath ^File %))
         out-main (str id ".cljs")
         src-file (doto (io/file tmp-main out-main) io/make-parents)
         edn-file (io/file tmp-main (str out-main ".edn"))
@@ -78,43 +137,40 @@
       (if suite?
         (info "Using %s...\n" edn-path)
         (do (info "Updating %s...\n" edn-path)
-            (spit edn-file (update edn :require (fn [xs] (when-not (some #{suite-ns} xs)
-                                                           (conj xs suite-ns)))))))
+            (spit edn-file
+                  (update edn :require
+                          (fn [xs] (when-not (some #{suite-ns} xs)
+                                     (conj xs suite-ns)))))))
       (do (info "Writing %s...\n" edn-path)
           (spit edn-file {:require [suite-ns]})))
     (if (and suite? edn?)
       fileset
       (boot/commit! (boot/add-source fileset tmp-main)))))
 
-(deftask prep-cljs-tests
-  "Prepare fileset to compile main entry point for the test suite."
-  [n namespaces NS ^:! #{str} "Namespaces to run, supports regexes. If omitted tries \"*-test\" then \"*\"."
-   e exclusions NS ^:! #{str} "Namespaces to exclude, supports regexes."
-   i id         ID     str    "Test runner id. Generates config if not found."
-   v verbosity  VAL    int    "Log level, from 0 to 3"]
+(defn- -prep-cljs-tests [id {:keys [namespaces exclusions verbosity]}]
   (let [tmp-main (boot/tmp-dir!)
         verbosity (or verbosity @boot.util/*verbosity* 1)]
     (boot/with-pre-wrap fileset
       (let [namespaces (u/refine-namespaces fileset namespaces exclusions)]
         (boot/empty-dir! tmp-main)
-        (add-suite-ns! fileset tmp-main id namespaces verbosity)))))
+        (ensure-suite-ns! fileset tmp-main id namespaces verbosity)))))
 
-(defn- info? [verbosity & args]
-  (when (> verbosity 1) (apply info args)))
+(defn link-resources! [output-dir]
+  (doseq [resource-dir (resource-paths)]
+    (file/sym-link resource-dir (file-ref output-dir resource-dir))))
 
-(defn link-resources! [dir]
-  (doseq [path (conj (boot/get-env :resource-paths) "node_modules")
-          :let [f (io/file path)]
-          :when (.exists f)]
-    (file/sym-link f (doto (io/file dir path)
-                       (io/make-parents)))))
+(defn copy-resources! [output-dir]
+  (doseq [resource-dir (resource-paths)
+          ^File file (file-seq resource-dir)
+          :when (.isFile file)]
+    (io/copy file (file-ref output-dir file))))
 
-(defn run-tests! [ids js-env cljs-opts v exit? doo-opts doo-installed? verbosity fileset]
+(defn run-tests! [doo-installed? fileset {:keys [verbosity ids js-env cljs-opts exit? doo-opts symlink?]}]
   (err/with-errors!
-    (info? v "Running cljs tests...\n")
+    (info? verbosity "Running cljs tests...\n")
     ((u/r doo.core/print-envs) js-env)
     (doseq [id ids]
-      (when (> (count ids) 1) (info? v "• %s\n" id))
+      (when (> (count ids) 1) (info? verbosity "• %s\n" id))
       (let [filename (str id ".js")
             karma? ((u/r doo.karma/env?) js-env)
             output-to (u/find-path fileset filename)
@@ -135,7 +191,9 @@
                             :debug (> verbosity 2)}
                            doo-opts
                            {:exec-dir dir})
-                _ (link-resources! dir)
+                _ (if symlink?
+                    (link-resources! dir)
+                    (copy-resources! dir))
                 _ (when karma?
                     (when-not @doo-installed?
                       (reset! doo-installed? true)
@@ -149,30 +207,18 @@
                   (err result))))))))
     fileset))
 
-(deftask run-cljs-tests
-  "Execute test reporter on compiled tests"
-  [i ids       IDS  [str] "Test runner ids. Generates each config if not found."
-   j js-env    VAL  kw    "Environment to execute within, eg. slimer, phantom, ..."
-   c cljs-opts OPTS edn   "Options to pass on to CLJS compiler."
-   v verbosity VAL  int   "Log level, from 0 to 3"
-   d doo-opts  VAL  code  "Options to pass on to Doo."
-   x exit?          bool  "Throw exception on error or inability to run tests."]
+(defn- -run-cljs-tests [{:keys [js-env cljs-opts doo-installed?] :as task-opts}]
   (ensure-deps! [:doo])
-  (let [js-env (or js-env default-js-env)
-        ids (if (seq ids) ids default-ids)
-        verbosity (or verbosity @boot.util/*verbosity*)
-        doo-installed? (atom false)]
-    (validate-cljs-opts! js-env cljs-opts)
-    (fn [next-task]
-      (fn [fileset]
-        (next-task (run-tests! ids js-env cljs-opts verbosity exit? doo-opts doo-installed? verbosity fileset))))))
+  (fn [next-task]
+    (fn [fileset]
+      (next-task (run-tests! doo-installed? fileset task-opts)))))
+
+;; tasks
 
 (deftask clear-errors
   "Clear any test errors from the fileset."
   []
-  (fn [handler]
-    (fn [fs]
-      (handler (err/clear-errors fs)))))
+  (fn [handler] (fn [fs] (handler (err/clear-errors fs)))))
 
 (deftask report-errors!
   "Throw exception if any test errors have been tracked against the fileset."
@@ -202,11 +248,26 @@
             (err/track-errors (or old-fs fs) (err/get-errors fs))
             (or old-fs fs)))))))
 
-(defn multi-comp
-  "Like to `clojure.core/comp`, but support nils and collections of fns."
-  [& fns]
-  (apply comp (remove nil? (flatten fns))))
+(deftask prep-cljs-tests
+  "Prepare fileset to compile main entry point for the test suite."
+  [n namespaces NS ^:! #{str} "Namespaces to run, supports regexes. If omitted tries \"*-test\" then \"*\"."
+   e exclusions NS ^:! #{str} "Namespaces to exclude, supports regexes."
+   i id ID str                "Test runner id. Generates config if not found."
+   v verbosity  VAL    int    "Log level, from 0 to 3"]
+  (-prep-cljs-tests id (normalize-task-opts (named-map namespaces exclusions verbosity))))
 
+(deftask run-cljs-tests
+  "Execute test reporter on compiled tests"
+  [i ids       IDS  [str] "Test runner ids. Generates each config if not found."
+   j js-env    VAL  kw    "Environment to execute within, eg. slimer, phantom, ..."
+   c cljs-opts OPTS edn   "Options to pass on to CLJS compiler."
+   v verbosity VAL  int   "Log level, from 0 to 3"
+   d doo-opts  VAL  code  "Options to pass on to Doo."
+   s symlink?       bool  "Use symlinks to copy resources and node dependencies into test output folder."
+   x exit?          bool  "Throw exception on error or inability to run tests."]
+  (-run-cljs-tests
+    (normalize-task-opts
+      (named-map ids js-env cljs-opts verbosity doo-opts symlink? exit?))))
 (deftask test-cljs
   "Run cljs.test tests via the engine of your choice.
 
@@ -223,41 +284,24 @@
                                   By default fileset is rolled back to support additional cljs suites, clean JARs, etc."
    x exit?                bool   "Throw exception on error or inability to run tests."
    k keep-errors?         bool   "Retain memory of test errors after rollback."
+   s symlink?             bool   "Use symlinks to copy resources and node dependencies into test output folder."
    v verbosity     VAL    int    "Log level, from 0 to 3"
    o out-file      VAL    str    "DEPRECATED Output file for test script."]
   (ensure-deps! [:org.clojure/clojurescript :adzerk/boot-cljs :doo])
   (when out-file
     (warn "[boot-cljs] :out-file is deprecated, please use :ids\n")
     (swap! boot/*warnings* inc))
-  (let [verbosity (or verbosity @boot.util/*verbosity*)
-        ids (cond
-              (seq ids) ids
-              out-file (str/replace out-file #"\.js\z" "")
-              :else default-ids)
-        ids (map #(str/replace % "/" File/separator) ids)
-        ids (vec (distinct ids))
-        optimizations (or optimizations :none)
-        js-env (or js-env default-js-env)
-        cljs-opts (u/combine-cljs-opts cljs-opts optimizations js-env)
+  (let [{:keys [ids js-env cljs-opts exit?] :as task-opts}
+        (normalize-task-opts
+          (named-map ids js-env namespaces exclusions cljs-opts optimizations doo-opts verbosity out-file symlink? exit?))
         ;; karma process is external, so coordinating rollback is not feasible.
         update-fs? (or update-fs? ((u/r doo.karma/env?) js-env))]
-    (validate-cljs-opts! js-env cljs-opts)
-    (multi-comp
+    (fcomp
       (when-not update-fs? (fs-snapshot))
-      (for [id ids]
-        (prep-cljs-tests
-          :id id
-          :namespaces namespaces
-          :exclusions exclusions))
+      (for [id ids] (-prep-cljs-tests id task-opts))
       ((u/r adzerk.boot-cljs/cljs)
         :ids (set ids)
         :compiler-options cljs-opts)
-      (run-cljs-tests
-        :ids ids
-        :cljs-opts cljs-opts
-        :doo-opts doo-opts
-        :js-env js-env
-        :exit? exit?
-        :verbosity verbosity)
+      (-run-cljs-tests task-opts)
       (when exit? (report-errors!))
       (when-not update-fs? (fs-restore :keep-errors? keep-errors?)))))
