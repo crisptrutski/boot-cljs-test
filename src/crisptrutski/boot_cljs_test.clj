@@ -177,7 +177,7 @@
             output-dir (when output-to (str/replace output-to #"\.js\z" ".out"))
             cljs-opts (when output-to (u/build-cljs-opts cljs-opts output-to output-dir))
             err (if exit?
-                  #(throw (RuntimeException. ^String (:out % %)))
+                  #(throw (ex-info (:out % %) {:boot.util/omit-stacktrace? true}))
                   #(err/track-error! (if (map? %) % {:exit 1 :out "" :err %})))]
         (when output-to
           ((u/r doo.core/assert-compiler-opts) js-env cljs-opts))
