@@ -58,8 +58,9 @@
      (handler fs))))
 
 (defn cljs [& args]
-  (merge-env! :dependencies '[[adzerk/boot-cljs "2.0.0" :scope "test"]
-                              [org.clojure/clojurescript "1.9.562" :scope "test"]])
+  #_(merge-env! :dependencies
+      '[[adzerk/boot-cljs "2.1.2" :scope "test"]
+	    [org.clojure/clojurescript "1.9.562" :scope "test"]])
   (require 'adzerk.boot-cljs)
   (apply @(resolve 'adzerk.boot-cljs/cljs) args))
 

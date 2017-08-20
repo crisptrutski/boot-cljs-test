@@ -15,7 +15,7 @@
 (def default-js-env :phantom)
 (def default-ids ["cljs_test/generated_test_suite"])
 (def default-deps
-  {:adzerk/boot-cljs "1.7.228-2"
+  {:adzerk/boot-cljs "2.1.2"
    :org.clojure/clojurescript "1.7.228"
    :doo "0.1.7"})
 
@@ -291,7 +291,7 @@
    s symlink?             bool   "Use symlinks to copy resources and node dependencies into test output folder."
    v verbosity     VAL    int    "Log level, from 0 to 3"
    o out-file      VAL    str    "DEPRECATED Output file for test script."]
-  (ensure-deps! [:org.clojure/clojurescript :adzerk/boot-cljs :doo])
+  (ensure-deps! [:adzerk/boot-cljs :org.clojure/clojurescript :doo])
   (when out-file
     (warn "[boot-cljs] :out-file is deprecated, please use :ids\n")
     (swap! boot/*warnings* inc))
