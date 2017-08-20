@@ -22,6 +22,13 @@
   (let [dependencies (mapv #(vector (symbol (subs (str %) 1)) (deps %)) keys)]
     (remove pod/dependency-loaded? dependencies)))
 
+(defn dep-version [lib]
+  (assert (symbol? lib))
+  (->> (boot/get-env :dependencies)
+       (filter #(= lib (first %)))
+       first second
+       (#(str/split % #"\."))))
+
 (defn file->ns
   "Determine namespace from filename"
   [filename]
@@ -121,3 +128,11 @@
     (if (or via-edn via-opt)
       (str (io/file (os-path (or via-edn via-opt))))
       (str (.getParentFile (io/file (os-path id)))))))
+
+(defn asset-path?
+  "Due to a bug in boot-cljs prior to 2.1.0, asset-path should only be rebased out of base path in never version."
+  []
+  (let [[major minor] (dep-version 'adzerk/boot-cljs)]
+    (not
+      (or (= major "1")
+          (and (= major "2") (= minor "0"))))))

@@ -175,8 +175,8 @@
             karma? ((u/r doo.karma/env?) js-env)
             output-to (u/find-path fileset filename)
             output-dir (when output-to (str/replace output-to #"\.js\z" ".out"))
-            asset-path (u/asset-path id cljs-opts)
-            cljs-opts (when output-to (u/build-cljs-opts cljs-opts output-to output-dir cljs-opts))
+            asset-path (when (u/asset-path?) (u/asset-path id cljs-opts))
+            cljs-opts (when output-to (u/build-cljs-opts cljs-opts output-to output-dir asset-path))
             err (if exit?
                   #(throw (ex-info (:out % %) {:boot.util/omit-stacktrace? true}))
                   #(err/track-error! (if (map? %) % {:exit 1 :out "" :err %})))]
@@ -187,7 +187,7 @@
               (swap! boot/*warnings* inc)
               (err (format "Test script not found: %s" filename)))
           (let [dir (str (.getParentFile (io/file output-to)))
-                dir (if (and asset-path (str/ends-with? dir asset-path))
+                dir (if (and  asset-path (str/ends-with? dir asset-path))
                       (subs dir 0 (- (count dir) (count asset-path) 1))
                       dir)
                 doo-opts (merge
