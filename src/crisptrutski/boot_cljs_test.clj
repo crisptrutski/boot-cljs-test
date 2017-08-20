@@ -83,7 +83,7 @@
               (seq ids) ids
               out-file (str/replace out-file #"\.js\z" "")
               :else default-ids)
-        ids (map #(str/replace % "/" File/separator) ids)
+        ids (map u/os-path ids)
         ids (vec (distinct ids))
         js-env (or js-env default-js-env)
         cljs-opts (u/combine-cljs-opts cljs-opts (or optimizations :none) js-env)]
@@ -115,7 +115,7 @@
   "Ensure test suite is included in fileset and build options, and generate it if not already found."
   [fileset ^File tmp-main id namespaces verbosity]
   (let [relative #(u/relativize (.getPath tmp-main) (.getPath ^File %))
-        out-main (str id ".cljs")
+        out-main (u/os-path (str id ".cljs"))
         src-file (doto (io/file tmp-main out-main) io/make-parents)
         edn-file (io/file tmp-main (str out-main ".edn"))
         src-path (relative src-file)
@@ -171,11 +171,12 @@
     ((u/r doo.core/print-envs) js-env)
     (doseq [id ids]
       (when (> (count ids) 1) (info? verbosity "• %s\n" id))
-      (let [filename (str id ".js")
+      (let [filename (u/os-path (str id ".js"))
             karma? ((u/r doo.karma/env?) js-env)
             output-to (u/find-path fileset filename)
             output-dir (when output-to (str/replace output-to #"\.js\z" ".out"))
-            cljs-opts (when output-to (u/build-cljs-opts cljs-opts output-to output-dir))
+            asset-path (u/asset-path id cljs-opts)
+            cljs-opts (when output-to (u/build-cljs-opts cljs-opts output-to output-dir cljs-opts))
             err (if exit?
                   #(throw (ex-info (:out % %) {:boot.util/omit-stacktrace? true}))
                   #(err/track-error! (if (map? %) % {:exit 1 :out "" :err %})))]
@@ -185,12 +186,15 @@
           (do (warn "Test script not found: %s\n" filename)
               (swap! boot/*warnings* inc)
               (err (format "Test script not found: %s" filename)))
-          (let [dir (.getParentFile (File. ^String output-to))
+          (let [dir (str (.getParentFile (io/file output-to)))
+                dir (if (and asset-path (str/ends-with? dir asset-path))
+                      (subs dir 0 (- (count dir) (count asset-path) 1))
+                      dir)
                 doo-opts (merge
                            {:verbose (>= verbosity 1)
                             :debug (> verbosity 2)}
                            doo-opts
-                           {:exec-dir dir})
+                           {:exec-dir (io/file dir)})
                 _ (if symlink?
                     (link-resources! dir)
                     (copy-resources! dir))
