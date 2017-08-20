@@ -272,6 +272,7 @@
   (-run-cljs-tests
     (normalize-task-opts
       (named-map ids js-env cljs-opts verbosity doo-opts symlink? exit?))))
+
 (deftask test-cljs
   "Run cljs.test tests via the engine of your choice.
 
