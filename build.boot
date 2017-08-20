@@ -2,15 +2,14 @@
   :dependencies '[[org.clojure/clojure       "1.8.0"   :scope "provided"]
                   [boot/core                 "2.7.1"   :scope "provided"]
                   [adzerk/bootlaces          "0.1.13"  :scope "test"]
-                  [org.clojure/clojurescript "1.9.562" :scope "test"]
-                  [adzerk/boot-cljs          "2.0.0"   :scope "test"]
+                  [adzerk/boot-cljs          "2.1.2"   :scope "test"]
                   [doo                       "0.1.7"   :scope "test"]
                   [adzerk/boot-test          "1.2.0"   :scope "test"]])
 
 (require '[adzerk.bootlaces :refer :all]
          '[adzerk.boot-test :refer :all])
 
-(def +version+ "0.3.2")
+(def +version+ "0.3.3-SNAPSHOT")
 
 (bootlaces! +version+)
 

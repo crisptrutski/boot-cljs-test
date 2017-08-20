@@ -22,13 +22,20 @@
   (let [dependencies (mapv #(vector (symbol (subs (str %) 1)) (deps %)) keys)]
     (remove pod/dependency-loaded? dependencies)))
 
+(defn dep-version [lib]
+  (assert (symbol? lib))
+  (->> (boot/get-env :dependencies)
+       (filter #(= lib (first %)))
+       first second
+       (#(str/split % #"\."))))
+
 (defn file->ns
   "Determine namespace from filename"
   [filename]
   (-> filename
       (str/replace #"\.clj.?$" "")
       (str/replace "_" "-")
-      (str/replace #"\/|\\" ".")
+      (str/replace (re-pattern File/separator) ".")
       symbol))
 
 (defn ns-regex [ns]
@@ -97,10 +104,11 @@
 
 (defn build-cljs-opts
   "Augment cljs-opts with boot determined values"
-  [base output-to output-dir]
-  (merge {:asset-path (.getName (io/file output-dir))}
+  [base output-to output-dir asset-path]
+  (merge (when asset-path {:asset-path asset-path})
          base
-         {:output-to output-to :output-dir output-dir}))
+         {:output-to output-to
+          :output-dir output-dir}))
 
 (defn combine-cljs-opts
   "Augment cljs-opts with values determined by other arguments"
@@ -108,3 +116,23 @@
   (merge {:optimizations optimizations}
          (when (= :node js-env) {:target :nodejs, :hashbang false})
          cljs-opts))
+
+(defn os-path
+  "Convert unix style path to use the correct separators for current platform."
+  [unix-path]
+  (str/replace unix-path "/" File/separator))
+
+(defn asset-path [id cljs-opts]
+  (let [via-edn (some-> id (str ".cljs.edn") os-path io/resource slurp read-string :comipler-options :asset-path)
+        via-opt (:asset-path cljs-opts)]
+    (if (or via-edn via-opt)
+      (str (io/file (os-path (or via-edn via-opt))))
+      (str (.getParentFile (io/file (os-path id)))))))
+
+(defn asset-path?
+  "Due to a bug in boot-cljs prior to 2.1.0, asset-path should only be rebased out of base path in never version."
+  []
+  (let [[major minor] (dep-version 'adzerk/boot-cljs)]
+    (not
+      (or (= major "1")
+          (and (= major "2") (= minor "0"))))))
