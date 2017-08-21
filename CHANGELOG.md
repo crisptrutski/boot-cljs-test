@@ -1,5 +1,9 @@
 # Changes
 
+## 0.3.3
+
+- Add support for adzerk/boot-cljs ^2.1.0
+
 ## 0.3.2
 
 - Revert to deep copy of resources in response to #62
