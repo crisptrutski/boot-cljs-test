@@ -123,7 +123,7 @@
   (str/replace unix-path "/" File/separator))
 
 (defn asset-path [id cljs-opts]
-  (let [via-edn (some-> id (str ".cljs.edn") os-path io/resource slurp read-string :comipler-options :asset-path)
+  (let [via-edn (some-> id (str ".cljs.edn") os-path io/resource slurp read-string :compiler-options :asset-path)
         via-opt (:asset-path cljs-opts)]
     (if (or via-edn via-opt)
       (str (io/file (os-path (or via-edn via-opt))))
