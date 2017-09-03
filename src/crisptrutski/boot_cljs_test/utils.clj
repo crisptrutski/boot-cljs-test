@@ -29,17 +29,19 @@
        first second
        (#(str/split % #"\."))))
 
+(defn re-escape [s] (str/replace s #"([\\\[\]\(\)\.\{\}\*\+])" "\\\\$1"))
+
 (defn file->ns
   "Determine namespace from filename"
   [filename]
   (-> filename
       (str/replace #"\.clj.?$" "")
       (str/replace "_" "-")
-      (str/replace (re-pattern File/separator) ".")
+      (str/replace (re-pattern (re-escape File/separator)) ".")
       symbol))
 
 (defn ns-regex [ns]
-  (if (instance? Pattern ns) ns (re-pattern (str "\\A" (name ns) "\\z"))))
+  (if (instance? Pattern ns) ns (re-pattern (str "\\A" (re-escape (name ns)) "\\z"))))
 
 (defn ^Path filename->path
   "A sane constructor `java.nio.file.Path` instances."
