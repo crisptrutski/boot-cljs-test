@@ -54,31 +54,37 @@
 (defn prn-errors [label]
   (fn [handler]
     (fn [fs]
-     (prn label "errors" (crisptrutski.boot-error.core/get-errors fs))
-     (handler fs))))
+      (prn label "errors" (crisptrutski.boot-error.core/get-errors fs))
+      (handler fs))))
+
+(defn with-cljs []
+  (merge-env!
+    :dependencies
+    '[[adzerk/boot-cljs "2.1.2" :scope "test"]
+      [org.clojure/clojurescript "1.9.562" :scope "test"]])
+  identity)
 
 (defn cljs [& args]
-  #_(merge-env! :dependencies
-      '[[adzerk/boot-cljs "2.1.2" :scope "test"]
-	    [org.clojure/clojurescript "1.9.562" :scope "test"]])
   (require 'adzerk.boot-cljs)
   (apply @(resolve 'adzerk.boot-cljs/cljs) args))
 
 (deftask test-plumbing []
-  (comp (testing)
-        ;; warn, no snapshot yet
-        (cljs-test/fs-restore)
-        (cljs-test/fs-snapshot)
-        (cljs-test/prep-cljs-tests :id "beep/boop")
-        (cljs-test/prep-cljs-tests :id "boop/beep")
-        (cljs :ids #{"beep/boop"})
-        (cljs-test/run-cljs-tests :ids ["beep/boop"] :verbosity 2)
-        (prn-errors "tracked")
-        (cljs-test/fs-restore)
-        (prn-errors "cleared")
-        (cljs :ids #{"boop/beep"})
-        (cljs-test/run-cljs-tests :ids ["boop/beep"] :verbosity 1)
-        (cljs-test/fs-restore :keep-errors? true)
-        (prn-errors "retained")
-        ;; fails, compiled suite rolled back
-        (cljs-test/run-cljs-tests :ids ["beep/boop"] :verbosity 2)))
+  (comp
+    (with-cljs)
+    (testing)
+    ;; warn, no snapshot yet
+    (cljs-test/fs-restore)
+    (cljs-test/fs-snapshot)
+    (cljs-test/prep-cljs-tests :id "beep/boop")
+    (cljs-test/prep-cljs-tests :id "boop/beep")
+    (cljs :ids #{"beep/boop"})
+    (cljs-test/run-cljs-tests :ids ["beep/boop"] :verbosity 2)
+    (prn-errors "tracked")
+    (cljs-test/fs-restore)
+    (prn-errors "cleared")
+    (cljs :ids #{"boop/beep"})
+    (cljs-test/run-cljs-tests :ids ["boop/beep"] :verbosity 1)
+    (cljs-test/fs-restore :keep-errors? true)
+    (prn-errors "retained")
+    ;; fails, compiled suite rolled back
+    (cljs-test/run-cljs-tests :ids ["beep/boop"] :verbosity 2)))
