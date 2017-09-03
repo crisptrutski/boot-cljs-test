@@ -1,5 +1,10 @@
 # Changes
 
+## 0.3.4
+
+- Fix regression in Windows support (broken file separators)
+- Fix using :compiler-options from .cljs.edn test suites
+
 ## 0.3.3
 
 - Add support for adzerk/boot-cljs ^2.1.0
