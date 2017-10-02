@@ -16,7 +16,7 @@
 (def default-ids ["cljs_test/generated_test_suite"])
 (def default-deps
   {:adzerk/boot-cljs "2.1.2"
-   :org.clojure/clojurescript "1.7.228"
+   :org.clojure/clojurescript "1.9.854" ;; TODO: regression back to usage with 1.7.228
    :doo "0.1.8"})
 
 ;; utils
