@@ -1,5 +1,9 @@
 # Changes
 
+## 0.3.5
+
+- Update `doo` to version 0.1.8
+
 ## 0.3.4
 
 - Fix regression in Windows support (broken file separators)

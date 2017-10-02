@@ -7,7 +7,7 @@ CI](https://circleci.com/gh/crisptrutski/boot-cljs-test.svg?style=svg)](https://
 
 [](dependency)
 ```clojure
-[crisptrutski/boot-cljs-test "0.3.4"] ;; latest release
+[crisptrutski/boot-cljs-test "0.3.5-SNAPSHOT"] ;; latest release
 ```
 [](/dependency)
 
