@@ -61,7 +61,7 @@
   (merge-env!
     :dependencies
     '[[adzerk/boot-cljs "2.1.2" :scope "test"]
-      [org.clojure/clojurescript "1.9.562" :scope "test"]])
+      [org.clojure/clojurescript "1.9.854" :scope "test"]])
   identity)
 
 (defn cljs [& args]
