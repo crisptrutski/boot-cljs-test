@@ -204,10 +204,13 @@
                       ((u/r doo.core/install!) [js-env] cljs-opts doo-opts)
                       (Thread/sleep 1000)))]
             (if karma?
-              ((u/r doo.core/karma-run!) doo-opts)
+              (let [proc ((u/r doo.core/karma-run!) doo-opts)]
+                (.waitFor proc)
+                (when-not (zero? (.exitValue proc))
+                  (err "Test failures signalled by Karma")))
               (let [{:keys [exit] :as result}
                     ((u/r doo.core/run-script) js-env cljs-opts doo-opts)]
-                (when (pos? exit)
+                (when-not (zero? exit)
                   (err result))))))))
     fileset))
 
