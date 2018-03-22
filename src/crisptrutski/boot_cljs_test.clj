@@ -17,7 +17,7 @@
 (def default-deps
   {:adzerk/boot-cljs "2.1.2"
    :org.clojure/clojurescript "1.9.854" ;; TODO: regression back to usage with 1.7.228
-   :doo "0.1.8"})
+   :doo "0.1.9"})
 
 ;; utils
 
@@ -172,7 +172,7 @@
     (doseq [id ids]
       (when (> (count ids) 1) (info? verbosity "• %s\n" id))
       (let [filename (u/os-path (str id ".js"))
-            karma? ((u/r doo.karma/env?) js-env)
+            karma? ((u/r doo.karma/env?) js-env doo-opts)
             output-to (u/find-path fileset filename)
             output-dir (when output-to (str/replace output-to #"\.js\z" ".out"))
             asset-path (when (u/asset-path?) (u/asset-path id cljs-opts))
@@ -303,7 +303,7 @@
         (normalize-task-opts
           (named-map ids js-env namespaces exclusions cljs-opts optimizations doo-opts verbosity out-file symlink? exit?))
         ;; karma process is external, so coordinating rollback is not feasible.
-        update-fs? (or update-fs? ((u/r doo.karma/env?) js-env))]
+        update-fs? (or update-fs? ((u/r doo.karma/env?) js-env doo-opts))]
     (fcomp
       (when-not update-fs? (fs-snapshot))
       (for [id ids] (-prep-cljs-tests id task-opts))
