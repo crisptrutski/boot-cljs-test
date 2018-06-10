@@ -157,7 +157,9 @@
 
 (defn link-resources! [output-dir]
   (doseq [resource-dir (resource-paths)]
-    (file/sym-link resource-dir (file-ref output-dir resource-dir))))
+    (let [fr (file-ref output-dir resource-dir)]
+      (io/delete-file fr true)
+      (file/sym-link resource-dir fr))))
 
 (defn copy-resources! [output-dir]
   (doseq [resource-dir (resource-paths)
