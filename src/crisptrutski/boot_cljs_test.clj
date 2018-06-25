@@ -8,7 +8,8 @@
     [crisptrutski.boot-cljs-test.utils :as u]
     [crisptrutski.boot-error.core :as err])
   (:import
-    [java.io File]))
+    [java.io File]
+    [java.nio.file Files]))
 
 #_(set! *warn-on-reflection* true)
 
@@ -158,7 +159,10 @@
 (defn link-resources! [output-dir]
   (doseq [resource-dir (resource-paths)]
     (let [fr (file-ref output-dir resource-dir)]
-      (io/delete-file fr true)
+      ; existing links must be deleted before new ones can be created
+      ; @see https://github.com/crisptrutski/boot-cljs-test/issues/80
+      (when (Files/isSymbolicLink (.toPath fr))
+        (io/delete-file fr true))
       (file/sym-link resource-dir fr))))
 
 (defn copy-resources! [output-dir]

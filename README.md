@@ -45,18 +45,21 @@ Supported task options:
 
 ```
   -h, --help                 Print this help info.
-  -j, --js-env VAL           Environment to execute within, eg. slimer, phantom, ...
-  -n, --namespaces NS        Namespaces to run, supports regexes. If omitted tries "*-test" then "*".
-  -e, --exclusions NS        Namespaces to exclude, supports regexes.
-  -i, --ids IDS              Test runner ids. Generates each config if not found.
-  -c, --cljs-opts OPTS       Options to pass on to CLJS compiler.
-  -O, --optimizations LEVEL  Sets optimization level for CLJS compiler, defaults to :none.
-  -d, --doo-opts VAL         Sets options to pass on to Doo.
+  -j, --js-env VAL           VAL sets environment to execute within, eg. slimer, phantom, ...
+  -n, --namespaces NS        Conj NS onto namespaces to run, supports regexes.
+                             If omitted tries "*-test" then "*".
+  -e, --exclusions NS        Conj NS onto namespaces to exclude, supports regexes.
+  -i, --ids IDS              Conj IDS onto test runner ids. Generates each config if not found.
+  -c, --cljs-opts OPTS       OPTS sets options to pass on to CLJS compiler.
+  -O, --optimizations LEVEL  LEVEL sets optimization level for CLJS compiler, defaults to :none.
+  -d, --doo-opts VAL         VAL sets options to pass on to Doo.
   -u, --update-fs?           Skip fileset rollback before running next task.
                              By default fileset is rolled back to support additional cljs suites, clean JARs, etc.
   -x, --exit?                Throw exception on error or inability to run tests.
   -k, --keep-errors?         Retain memory of test errors after rollback.
-  -v, --verbosity VAL        Log level, from 1 to 3.
+  -s, --symlink?             Use symlinks to copy resources and node dependencies into test output folder.
+  -v, --verbosity VAL        VAL sets log level, from 0 to 3.
+  -o, --out-file VAL         VAL sets dEPRECATED Output file for test script.
 ```
 
 ## Getting fancy
