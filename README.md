@@ -59,7 +59,7 @@ Supported task options:
   -k, --keep-errors?         Retain memory of test errors after rollback.
   -s, --symlink?             Use symlinks to copy resources and node dependencies into test output folder.
   -v, --verbosity VAL        VAL sets log level, from 0 to 3.
-  -o, --out-file VAL         VAL sets dEPRECATED Output file for test script.
+  -o, --out-file VAL         VAL sets DEPRECATED Output file for test script.
 ```
 
 ## Getting fancy
